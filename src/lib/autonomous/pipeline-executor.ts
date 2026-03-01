@@ -227,8 +227,10 @@ export class PipelineExecutor {
       qaResult = parseQAOutput(qaRun.output);
     }
 
+    const allAgentsFailed = allAgentRuns.length > 0 && allAgentRuns.every(r => r.status === 'failed');
+
     return {
-      success: !qaResult || qaResult.passed,
+      success: !allAgentsFailed && (!qaResult || qaResult.passed),
       agentRuns: allAgentRuns,
       finalOutput: Array.from(previousOutputs.values()).join('\n\n---\n\n'),
       totalCostUsd,

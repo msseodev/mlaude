@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
 
 interface PipelineAgent {
   id: string;
@@ -82,6 +83,9 @@ export function PipelineViewer({ cycleNumber, agents, currentAgentId, output, ou
             else if (entry.type === 'cycle_complete' || entry.type === 'agent_complete') color = 'text-green-400';
             else if (entry.type === 'cycle_failed' || entry.type === 'agent_failed') color = 'text-red-400';
             else if (entry.type === 'review_iteration') color = 'text-yellow-400';
+            if (entry.type === 'text') {
+              return <MarkdownOutput key={i} text={entry.text} />;
+            }
             return <span key={i} className={color}>{entry.text}</span>;
           })
         )}

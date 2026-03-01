@@ -51,6 +51,10 @@ export default function CyclesPage() {
   const [expandedCycleId, setExpandedCycleId] = useState<string | null>(null);
   const [agentRuns, setAgentRuns] = useState<AutoAgentRun[]>([]);
   const [agentRunsLoading, setAgentRunsLoading] = useState(false);
+  const [selectedAgentRun, setSelectedAgentRun] = useState<AutoAgentRun | null>(null);
+  const [agentRunDetail, setAgentRunDetail] = useState<AutoAgentRun | null>(null);
+  const [agentRunDetailLoading, setAgentRunDetailLoading] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(false);
 
   // Fetch sessions
   const fetchSessions = useCallback(() => {
@@ -131,6 +135,23 @@ export default function CyclesPage() {
       setAgentRunsLoading(false);
     }
   }, [expandedCycleId]);
+
+  const handleAgentRunClick = useCallback(async (run: AutoAgentRun) => {
+    setSelectedAgentRun(run);
+    setAgentRunDetail(null);
+    setAgentRunDetailLoading(true);
+    setPromptExpanded(false);
+    try {
+      const res = await fetch(`/api/auto/agent-runs/${run.id}`);
+      if (!res.ok) throw new Error('Failed to load agent run detail');
+      const data: AutoAgentRun = await res.json();
+      setAgentRunDetail(data);
+    } catch {
+      setAgentRunDetail(null);
+    } finally {
+      setAgentRunDetailLoading(false);
+    }
+  }, []);
 
   return (
     <div className="p-6">
@@ -273,7 +294,14 @@ export default function CyclesPage() {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                   {agentRuns.map((run) => (
-                                    <tr key={run.id} className="hover:bg-gray-100">
+                                    <tr
+                                      key={run.id}
+                                      className="cursor-pointer hover:bg-gray-100"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAgentRunClick(run);
+                                      }}
+                                    >
                                       <td className="px-4 py-2 text-gray-900">{run.agent_name}</td>
                                       <td className="px-4 py-2 text-gray-600">{run.iteration}</td>
                                       <td className="px-4 py-2">
@@ -304,7 +332,7 @@ export default function CyclesPage() {
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* Cycle Detail Modal */}
       <Modal
         open={selectedCycle !== null}
         onClose={() => setSelectedCycle(null)}
@@ -398,6 +426,110 @@ export default function CyclesPage() {
               >
                 {selectedCycle.output || '(no output)'}
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Agent Run Detail Modal */}
+      <Modal
+        open={selectedAgentRun !== null}
+        onClose={() => {
+          setSelectedAgentRun(null);
+          setAgentRunDetail(null);
+        }}
+        title={
+          selectedAgentRun
+            ? `${selectedAgentRun.agent_name} - Iteration ${selectedAgentRun.iteration}`
+            : 'Agent Run Detail'
+        }
+        footer={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setSelectedAgentRun(null);
+              setAgentRunDetail(null);
+            }}
+          >
+            Close
+          </Button>
+        }
+      >
+        {selectedAgentRun && (
+          <div className="max-h-[70vh] overflow-y-auto space-y-4">
+            {/* Header with status badge */}
+            <div className="flex items-center gap-2">
+              <Badge variant={agentRunStatusVariant(selectedAgentRun.status)}>
+                {selectedAgentRun.status}
+              </Badge>
+            </div>
+
+            {/* Metadata */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-500">Cost:</span>{' '}
+                <span className="text-gray-900">
+                  {selectedAgentRun.cost_usd != null
+                    ? `$${selectedAgentRun.cost_usd.toFixed(4)}`
+                    : '-'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Duration:</span>{' '}
+                <span className="text-gray-900">
+                  {formatDuration(selectedAgentRun.duration_ms)}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Started:</span>{' '}
+                <span className="text-gray-900">
+                  {formatDate(selectedAgentRun.started_at)}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Completed:</span>{' '}
+                <span className="text-gray-900">
+                  {selectedAgentRun.completed_at
+                    ? formatDate(selectedAgentRun.completed_at)
+                    : '-'}
+                </span>
+              </div>
+            </div>
+
+            {/* Output section */}
+            <div>
+              <p className="mb-1 text-sm font-medium text-gray-700">Output</p>
+              {agentRunDetailLoading ? (
+                <div className="rounded p-3 text-sm text-gray-500" style={{ backgroundColor: '#1E1E1E' }}>
+                  Loading...
+                </div>
+              ) : (
+                <div
+                  className="max-h-96 overflow-y-auto rounded p-3 font-mono text-xs leading-relaxed text-gray-100 whitespace-pre-wrap"
+                  style={{ backgroundColor: '#1E1E1E' }}
+                >
+                  {agentRunDetail?.output || '(no output)'}
+                </div>
+              )}
+            </div>
+
+            {/* Prompt section (collapsible) */}
+            <div>
+              <button
+                type="button"
+                className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900"
+                onClick={() => setPromptExpanded((prev) => !prev)}
+              >
+                <span className="text-gray-400">{promptExpanded ? '\u25BC' : '\u25B6'}</span>
+                Prompt
+              </button>
+              {promptExpanded && (
+                <div className="mt-1 max-h-60 overflow-y-auto rounded bg-gray-50 p-3 text-xs text-gray-800 whitespace-pre-wrap">
+                  {agentRunDetailLoading
+                    ? 'Loading...'
+                    : agentRunDetail?.prompt || '(no prompt)'}
+                </div>
+              )}
             </div>
           </div>
         )}

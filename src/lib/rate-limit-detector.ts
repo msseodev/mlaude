@@ -9,6 +9,7 @@ export class RateLimitDetector {
     /overloaded/i,
     /hit your limit/i,
     /you've hit your limit/i,
+    /out of .* usage/i,
   ];
 
   /**

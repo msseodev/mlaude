@@ -1,6 +1,10 @@
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 import { ClaudeExecutor } from '../claude-executor';
 import { getSetting } from '../db';
 import { PipelineExecutor } from './pipeline-executor';
+import type { PipelineResult } from './pipeline-executor';
 import type { AutoUserPrompt } from './types';
 import {
   createAutoSession,
@@ -633,6 +637,18 @@ class CycleEngineImpl {
       }
     }
 
+    // Write cycle summary doc (before git commit so it's included)
+    if (result.success) {
+      await this.writeCycleDoc(session.target_project, this.cycleNumber, findingToFix, result, now);
+    }
+
+    // Git commit on success
+    if (result.success && settings.auto_commit) {
+      const gitManager = new GitManager(session.target_project);
+      const commitMsg = buildCycleCommitMessage(this.cycleNumber, findingToFix, result);
+      await gitManager.commitCycleResult(commitMsg);
+    }
+
     // Update cycle record
     const cycleStatus = result.success ? 'completed' : 'failed';
     updateAutoCycle(cycle.id, {
@@ -968,6 +984,26 @@ class CycleEngineImpl {
     this.codebaseSummaryCache = null;
   }
 
+  private async writeCycleDoc(
+    targetProject: string,
+    cycleNumber: number,
+    finding: { priority: string; title: string; category: string } | null,
+    result: PipelineResult,
+    timestamp: string,
+  ): Promise<void> {
+    try {
+      const resolvedPath = targetProject.startsWith('~')
+        ? path.join(os.homedir(), targetProject.slice(1))
+        : targetProject;
+      const docDir = path.join(resolvedPath, 'docs', 'cycle');
+      await fs.mkdir(docDir, { recursive: true });
+      const doc = buildCycleDoc(cycleNumber, finding, result, timestamp);
+      await fs.writeFile(path.join(docDir, `cycle-${cycleNumber}.md`), doc, 'utf-8');
+    } catch {
+      // Don't fail the cycle if doc writing fails
+    }
+  }
+
   private async updateStateFile(): Promise<void> {
     if (!this.currentSessionId) return;
     try {
@@ -981,6 +1017,124 @@ class CycleEngineImpl {
       // Don't fail the cycle if state file write fails
     }
   }
+}
+
+// --- Exported helpers (also used by tests) ---
+
+export function buildCycleCommitMessage(
+  cycleNumber: number,
+  finding: { priority: string; title: string } | null,
+  result: PipelineResult,
+): string {
+  // Title line
+  const title = finding
+    ? `[mclaude-auto] cycle ${cycleNumber}: ${finding.title}`
+    : `[mclaude-auto] cycle ${cycleNumber}: Pipeline cycle completed`;
+
+  // Body lines
+  const lines: string[] = [title, ''];
+
+  if (finding) {
+    lines.push(`Finding: ${finding.priority} - ${finding.title}`);
+  }
+
+  // Agent summary
+  const agentSummary = result.agentRuns
+    .map(r => `${r.agent_name}(${r.status})`)
+    .join(' → ');
+  lines.push(`Agents: ${agentSummary}`);
+
+  // Cost and duration
+  const durationMin = result.totalDurationMs > 0
+    ? (result.totalDurationMs / 60000).toFixed(1)
+    : '0';
+  lines.push(`Cost: $${result.totalCostUsd.toFixed(2)} | Duration: ${durationMin}min`);
+
+  return lines.join('\n');
+}
+
+export function parseQACounts(testOutput: string): { passed: number | null; failed: number | null; total: number | null } {
+  const passedMatch = testOutput.match(/(\d+)\s*passed/i);
+  const failedMatch = testOutput.match(/(\d+)\s*failed/i);
+  const totalMatch = testOutput.match(/(\d+)\s*total/i);
+
+  const passed = passedMatch ? parseInt(passedMatch[1], 10) : null;
+  const failed = failedMatch ? parseInt(failedMatch[1], 10) : null;
+  const total = totalMatch ? parseInt(totalMatch[1], 10) : null;
+
+  return { passed, failed, total };
+}
+
+export function buildCycleDoc(
+  cycleNumber: number,
+  finding: { priority: string; title: string; category: string } | null,
+  result: PipelineResult,
+  timestamp: string,
+): string {
+  const durationMin = (result.totalDurationMs / 60000).toFixed(1);
+  const cost = result.totalCostUsd.toFixed(2);
+
+  const lines: string[] = [
+    `# Cycle ${cycleNumber} Summary`,
+    '',
+    `- **Date**: ${timestamp}`,
+    '- **Status**: completed',
+    `- **Cost**: $${cost}`,
+    `- **Duration**: ${durationMin}min`,
+    '',
+    '## Finding',
+    '',
+    `- **Priority**: ${finding?.priority ?? 'N/A'}`,
+    `- **Title**: ${finding?.title ?? 'N/A'}`,
+    `- **Category**: ${finding?.category ?? 'N/A'}`,
+    '',
+    '## Agent Results',
+    '',
+  ];
+
+  const agentNames = ['Product Designer', 'Developer', 'Reviewer', 'QA Engineer'];
+  const runsByName = new Map(result.agentRuns.map(r => [r.agent_name, r]));
+
+  for (const name of agentNames) {
+    const run = runsByName.get(name);
+    lines.push(`### ${name}`);
+    if (!run || run.status === 'skipped' || !run.output) {
+      lines.push('skipped');
+    } else {
+      const output = run.output.length > 500 ? run.output.slice(0, 500) + '...' : run.output;
+      lines.push(output);
+    }
+    lines.push('');
+  }
+
+  // Also include any agents not in the standard list
+  for (const run of result.agentRuns) {
+    if (!agentNames.includes(run.agent_name)) {
+      lines.push(`### ${run.agent_name}`);
+      if (run.status === 'skipped' || !run.output) {
+        lines.push('skipped');
+      } else {
+        const output = run.output.length > 500 ? run.output.slice(0, 500) + '...' : run.output;
+        lines.push(output);
+      }
+      lines.push('');
+    }
+  }
+
+  lines.push('## QA Results');
+  if (result.qaResult) {
+    const counts = parseQACounts(result.qaResult.testOutput);
+    lines.push(`- Passed: ${counts.passed ?? 'N/A'}`);
+    lines.push(`- Failed: ${counts.failed ?? 'N/A'}`);
+    lines.push(`- Total: ${counts.total ?? 'N/A'}`);
+  } else {
+    lines.push('- Passed: N/A');
+    lines.push('- Failed: N/A');
+    lines.push('- Total: N/A');
+  }
+  lines.push('');
+
+  return lines.join('\n');
 }
 
 // Global singleton (HMR-safe)

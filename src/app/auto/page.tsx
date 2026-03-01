@@ -8,6 +8,7 @@ import { Badge, statusBadgeVariant } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { PipelineViewer } from '@/components/auto/PipelineViewer';
+import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
 import type { AutoSSEEvent, AutoUserPrompt } from '@/types';
 
 const MAX_OUTPUT_ENTRIES = 10000;
@@ -913,11 +914,15 @@ function OutputViewer({
           Waiting for output...
         </p>
       ) : (
-        entries.map((entry, i) => (
-          <span key={i} className={colorForType(entry.type)}>
-            {entry.text}
-          </span>
-        ))
+        entries.map((entry, i) =>
+          entry.type === 'text' ? (
+            <MarkdownOutput key={i} text={entry.text} />
+          ) : (
+            <span key={i} className={colorForType(entry.type)}>
+              {entry.text}
+            </span>
+          )
+        )
       )}
     </div>
   );

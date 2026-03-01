@@ -1,5 +1,55 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseReviewOutput, parseQAOutput, parseDeveloperOutput } from '../../src/lib/autonomous/pipeline-executor';
+import type { AutoAgentRun } from '../../src/lib/autonomous/types';
+
+// Mock dependencies for PipelineExecutor.execute() tests
+vi.mock('../../src/lib/autonomous/db', () => ({
+  getAutoAgents: vi.fn(),
+  createAutoAgentRun: vi.fn(),
+  updateAutoAgentRun: vi.fn(),
+  getAllAutoSettings: vi.fn(),
+  getAutoUserPrompts: vi.fn(),
+  getAutoCycle: vi.fn(),
+}));
+
+vi.mock('../../src/lib/db', () => ({
+  getSetting: vi.fn(() => 'claude'),
+}));
+
+vi.mock('../../src/lib/autonomous/state-manager', () => ({
+  StateManager: class {
+    readState() { return Promise.resolve(''); }
+  },
+}));
+
+vi.mock('../../src/lib/autonomous/user-prompt-builder', () => ({
+  buildUserPrompt: vi.fn(() => 'test prompt'),
+}));
+
+vi.mock('../../src/lib/autonomous/agent-context-builder', () => ({
+  buildAgentContext: vi.fn(() => 'mocked context'),
+}));
+
+vi.mock('../../src/lib/autonomous/output-parser', () => ({
+  parseAgentOutput: vi.fn(() => ({ summary: 'test summary', structuredData: null })),
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyFn = (...args: any[]) => any;
+
+// ClaudeExecutor mock: overridden per test via mockClaudeExecutorImpl
+let mockClaudeExecutorImpl: (binary: string, onEvent: AnyFn, onRateLimit: AnyFn, onComplete: AnyFn) => { execute: AnyFn; kill: AnyFn };
+
+vi.mock('../../src/lib/claude-executor', () => ({
+  ClaudeExecutor: class {
+    private _impl: { execute: AnyFn; kill: AnyFn };
+    constructor(binary: string, onEvent: AnyFn, onRateLimit: AnyFn, onComplete: AnyFn) {
+      this._impl = mockClaudeExecutorImpl(binary, onEvent, onRateLimit, onComplete);
+    }
+    execute(...args: unknown[]) { return this._impl.execute(...args); }
+    kill(...args: unknown[]) { return this._impl.kill(...args); }
+  },
+}));
 
 describe('parseReviewOutput', () => {
   it('parses approved review', () => {
@@ -152,5 +202,84 @@ describe('parseDeveloperOutput', () => {
     const output = '{"blocked": false, "reason": ""}';
     const result = parseDeveloperOutput(output);
     expect(result.blocked).toBe(false);
+  });
+});
+
+describe('PipelineExecutor.execute - success determination', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('reports success=false when all agent runs failed', async () => {
+    // Import mocked modules
+    const { getAutoAgents, createAutoAgentRun, updateAutoAgentRun, getAllAutoSettings, getAutoUserPrompts } = await import('../../src/lib/autonomous/db');
+    const { PipelineExecutor } = await import('../../src/lib/autonomous/pipeline-executor');
+
+    // Setup: two agents (developer and qa_engineer), both will fail
+    const mockAgents = [
+      { id: 'agent-1', name: 'developer', display_name: 'Developer', pipeline_order: 1, enabled: 1 },
+      { id: 'agent-2', name: 'qa_engineer', display_name: 'QA Engineer', pipeline_order: 2, enabled: 1 },
+    ];
+
+    (getAllAutoSettings as ReturnType<typeof vi.fn>).mockReturnValue({
+      skip_designer_for_fixes: false,
+      review_max_iterations: 1,
+      max_designer_iterations: 1,
+    });
+    (getAutoAgents as ReturnType<typeof vi.fn>).mockReturnValue(mockAgents);
+    (getAutoUserPrompts as ReturnType<typeof vi.fn>).mockReturnValue([]);
+
+    let agentRunCounter = 0;
+    (createAutoAgentRun as ReturnType<typeof vi.fn>).mockImplementation((params: Record<string, unknown>) => {
+      agentRunCounter++;
+      return {
+        id: `run-${agentRunCounter}`,
+        cycle_id: params.cycle_id,
+        agent_id: params.agent_id,
+        agent_name: params.agent_name,
+        iteration: params.iteration,
+        status: 'running',
+        prompt: params.prompt,
+        output: '',
+        cost_usd: null,
+        duration_ms: null,
+        started_at: new Date().toISOString(),
+        completed_at: null,
+      } as AutoAgentRun;
+    });
+
+    (updateAutoAgentRun as ReturnType<typeof vi.fn>).mockImplementation((_id: string, updates: Partial<AutoAgentRun>) => {
+      return { id: _id, ...updates } as AutoAgentRun;
+    });
+
+    // Mock ClaudeExecutor to immediately call onComplete with isError=true (simulating failure)
+    mockClaudeExecutorImpl = (_binary, _onEvent, _onRateLimit, onComplete) => ({
+      execute: () => {
+        // Simulate agent failure (not rate limit)
+        onComplete({ cost_usd: 0.01, duration_ms: 100, output: 'Error occurred', isError: true });
+      },
+      kill: vi.fn(),
+    });
+
+    const mockSession = {
+      id: 'session-1',
+      target_project: '/tmp/test-project',
+      status: 'running' as const,
+      total_cycles: 0,
+      total_cost_usd: 0,
+      config: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const emitFn = vi.fn();
+    const executor = new PipelineExecutor(mockSession, 'cycle-1', 1, emitFn);
+    const result = await executor.execute();
+
+    // BUG: All agents failed, but QA agent has status 'failed' (not 'completed'),
+    // so qaResult is undefined, and !undefined = true -> pipeline falsely reports success
+    expect(result.success).toBe(false);
+    expect(result.agentRuns).toHaveLength(2);
+    expect(result.agentRuns.every(r => r.status === 'failed')).toBe(true);
   });
 });

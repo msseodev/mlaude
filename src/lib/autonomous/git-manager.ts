@@ -1,10 +1,18 @@
 import { execFile } from 'child_process';
+import os from 'os';
+import path from 'path';
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
 export class GitManager {
-  constructor(private projectPath: string) {}
+  private resolvedPath: string;
+
+  constructor(private projectPath: string) {
+    this.resolvedPath = projectPath.startsWith('~')
+      ? path.join(os.homedir(), projectPath.slice(1))
+      : projectPath;
+  }
 
   async isGitRepo(): Promise<boolean> {
     try {
@@ -61,6 +69,28 @@ export class GitManager {
     }
   }
 
+  async commitCycleResult(message: string): Promise<string | null> {
+    try {
+      await this.execGit(['add', '-A']);
+
+      let hasChanges = false;
+      try {
+        await this.execGit(['diff', '--cached', '--quiet']);
+        hasChanges = false;
+      } catch {
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        await this.execGit(['commit', '-m', message]);
+      }
+
+      return await this.getCurrentSha();
+    } catch {
+      return null;
+    }
+  }
+
   async rollback(commitSha: string): Promise<boolean> {
     try {
       await this.execGit(['reset', '--hard', commitSha]);
@@ -80,6 +110,6 @@ export class GitManager {
   }
 
   private async execGit(args: string[]): Promise<{ stdout: string; stderr: string }> {
-    return execFileAsync('git', args, { cwd: this.projectPath });
+    return execFileAsync('git', args, { cwd: this.resolvedPath });
   }
 }

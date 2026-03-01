@@ -167,6 +167,7 @@ export interface AutoRunStatus {
   pipelineAgents: Array<{ id: string; name: string; status: string }>;
   waitingUntil: string | null;
   retryCount: number;
+  pauseAfterCycle: boolean;
 }
 
 // --- Test result ---

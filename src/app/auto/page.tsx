@@ -296,6 +296,50 @@ export default function AutoDashboardPage() {
     }
   }
 
+  async function handlePauseAfterCycle() {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/auto', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pause_after_cycle' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || 'Failed to schedule pause', 'error');
+      } else {
+        showToast('Will pause after current cycle completes', 'info');
+      }
+      await refresh();
+    } catch {
+      showToast('Failed to schedule pause', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleCancelPauseAfterCycle() {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/auto', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel_pause_after_cycle' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || 'Failed to cancel pause', 'error');
+      } else {
+        showToast('Pause cancelled, will continue running', 'info');
+      }
+      await refresh();
+    } catch {
+      showToast('Failed to cancel pause', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleResume(midSessionPrompt?: string) {
     setActionLoading(true);
     try {
@@ -347,8 +391,17 @@ export default function AutoDashboardPage() {
               <Button variant="secondary" onClick={() => setShowAddPromptModal(true)}>
                 Add Prompt
               </Button>
+              {status?.pauseAfterCycle ? (
+                <Button variant="secondary" onClick={handleCancelPauseAfterCycle} loading={actionLoading}>
+                  Cancel Pause
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={handlePauseAfterCycle} loading={actionLoading}>
+                  Pause After Cycle
+                </Button>
+              )}
               <Button variant="secondary" onClick={handlePause} loading={actionLoading}>
-                Pause
+                Pause Now
               </Button>
               <Button variant="danger" onClick={handleStop} loading={actionLoading}>
                 Stop

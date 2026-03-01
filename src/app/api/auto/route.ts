@@ -40,11 +40,17 @@ export async function PATCH(request: NextRequest) {
     if (action === 'pause') {
       await autoEngine.pause();
       return NextResponse.json({ success: true });
+    } else if (action === 'pause_after_cycle') {
+      await autoEngine.pauseAfterCycle();
+      return NextResponse.json({ success: true });
+    } else if (action === 'cancel_pause_after_cycle') {
+      autoEngine.cancelPauseAfterCycle();
+      return NextResponse.json({ success: true });
     } else if (action === 'resume') {
       await autoEngine.resume(midSessionPrompt);
       return NextResponse.json({ success: true });
     } else {
-      return NextResponse.json({ error: 'action must be "pause" or "resume"' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update autonomous mode';

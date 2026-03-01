@@ -68,6 +68,7 @@ class CycleEngineImpl {
   private currentOutput: string = '';
   private consecutiveFailures: number = 0;
   private isPaused: boolean = false;
+  private isPauseAfterCycle: boolean = false;
   private isStopping: boolean = false;
   private codebaseSummaryCache: string | null = null;
 
@@ -237,6 +238,22 @@ class CycleEngineImpl {
     caffeinateManager.release();
   }
 
+  async pauseAfterCycle(): Promise<void> {
+    if (!this.currentSessionId) {
+      throw new Error('No active autonomous session');
+    }
+    this.isPauseAfterCycle = true;
+    this.emit({
+      type: 'session_status',
+      data: { status: 'pause_scheduled', sessionId: this.currentSessionId },
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  cancelPauseAfterCycle(): void {
+    this.isPauseAfterCycle = false;
+  }
+
   async resume(midSessionPrompt?: string): Promise<void> {
     if (!this.currentSessionId) {
       throw new Error('No active autonomous session to resume');
@@ -302,6 +319,7 @@ class CycleEngineImpl {
         pipelineAgents: [],
         waitingUntil: null,
         retryCount: 0,
+        pauseAfterCycle: false,
       };
     }
 
@@ -361,6 +379,7 @@ class CycleEngineImpl {
       pipelineAgents,
       waitingUntil: this.waitingUntil?.toISOString() ?? null,
       retryCount: this.retryCount,
+      pauseAfterCycle: this.isPauseAfterCycle,
     };
   }
 
@@ -368,6 +387,20 @@ class CycleEngineImpl {
 
   private processNextCycle(): void {
     if (this.isPaused || this.isStopping || !this.currentSessionId) return;
+
+    // Graceful pause: stop before starting next cycle
+    if (this.isPauseAfterCycle) {
+      this.isPauseAfterCycle = false;
+      this.isPaused = true;
+      updateAutoSession(this.currentSessionId, { status: 'paused' });
+      this.emit({
+        type: 'session_status',
+        data: { status: 'paused', reason: 'pause_after_cycle', sessionId: this.currentSessionId },
+        timestamp: new Date().toISOString(),
+      });
+      caffeinateManager.release();
+      return;
+    }
 
     // Use setTimeout to avoid deep call stacks
     setTimeout(async () => {
@@ -1022,6 +1055,7 @@ class CycleEngineImpl {
     this.cycleNumber = 0;
     this.consecutiveFailures = 0;
     this.isPaused = false;
+    this.isPauseAfterCycle = false;
     this.isStopping = false;
     this.retryCount = 0;
     this.codebaseSummaryCache = null;

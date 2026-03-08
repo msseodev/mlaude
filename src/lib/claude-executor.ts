@@ -58,6 +58,7 @@ export class ClaudeExecutor {
       '--verbose',
       '--max-turns', '50',
       '--dangerously-skip-permissions',
+      '--append-system-prompt', 'You are an autonomous agent. Make all decisions independently and proceed without asking the user for guidance, clarification, or confirmation. Never ask "How should we proceed?" or similar questions. Just do the work.',
     ];
 
     if (model) {

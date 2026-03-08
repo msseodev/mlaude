@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Fragment } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
 import type { AutoCycle, AutoSession, AutoCycleStatus, AutoAgentRun } from '@/types';
 
 type BadgeVariant = 'gray' | 'blue' | 'green' | 'yellow' | 'red' | 'purple';
@@ -421,10 +422,14 @@ export default function CyclesPage() {
             <div>
               <p className="mb-1 text-sm font-medium text-gray-700">Output</p>
               <div
-                className="max-h-80 overflow-y-auto rounded p-3 font-mono text-xs leading-relaxed text-gray-100 whitespace-pre-wrap"
+                className="max-h-80 overflow-y-auto rounded p-3 font-mono text-xs leading-relaxed text-gray-100"
                 style={{ backgroundColor: '#1E1E1E' }}
               >
-                {selectedCycle.output || '(no output)'}
+                {selectedCycle.output ? (
+                  <MarkdownOutput text={selectedCycle.output} />
+                ) : (
+                  <span className="text-gray-500">(no output)</span>
+                )}
               </div>
             </div>
           </div>
@@ -505,10 +510,14 @@ export default function CyclesPage() {
                 </div>
               ) : (
                 <div
-                  className="max-h-96 overflow-y-auto rounded p-3 font-mono text-xs leading-relaxed text-gray-100 whitespace-pre-wrap"
+                  className="max-h-96 overflow-y-auto rounded p-3 font-mono text-xs leading-relaxed text-gray-100"
                   style={{ backgroundColor: '#1E1E1E' }}
                 >
-                  {agentRunDetail?.output || '(no output)'}
+                  {agentRunDetail?.output ? (
+                    <MarkdownOutput text={agentRunDetail.output} />
+                  ) : (
+                    <span className="text-gray-500">(no output)</span>
+                  )}
                 </div>
               )}
             </div>

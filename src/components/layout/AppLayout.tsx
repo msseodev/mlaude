@@ -1,16 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './Sidebar';
 import { ToastProvider } from '@/components/ui/Toast';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [authEnabled, setAuthEnabled] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/check')
+      .then((res) => res.json())
+      .then((data) => {
+        setAuthEnabled(data.authEnabled === true);
+      })
+      .catch(() => {
+        // If check fails, assume auth is not enabled
+      });
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Continue with redirect even if the request fails
+    }
+    window.location.href = '/login';
+  }, []);
 
   return (
     <ToastProvider>
       <div className="flex h-screen bg-gray-50">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          authEnabled={authEnabled}
+          onLogout={handleLogout}
+        />
 
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Mobile header */}

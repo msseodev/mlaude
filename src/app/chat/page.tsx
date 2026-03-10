@@ -11,7 +11,6 @@ interface Message {
   content: string;
   cost_usd?: number | null;
   duration_ms?: number | null;
-  isStreaming?: boolean;
 }
 
 export default function ChatPage() {
@@ -22,6 +21,7 @@ export default function ChatPage() {
   const [streamingContent, setStreamingContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sendingRef = useRef(false); // Guard against double invocation
 
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
@@ -40,7 +40,6 @@ export default function ChatPage() {
         if (status.sessionId) {
           setSessionId(status.sessionId);
           setIsResponding(status.status === 'responding');
-          // Load messages
           fetch(`/api/chat/sessions/${status.sessionId}`)
             .then(res => res.json())
             .then(data => {
@@ -48,14 +47,10 @@ export default function ChatPage() {
                 setMessages(data.messages);
               }
             })
-            .catch(() => {
-              // ignore fetch errors
-            });
+            .catch(() => {});
         }
       })
-      .catch(() => {
-        // ignore fetch errors
-      });
+      .catch(() => {});
   }, []);
 
   // SSE connection
@@ -71,7 +66,6 @@ export default function ChatPage() {
         break;
     }
 
-    // Handle chat-specific event types via the raw type string
     const eventType = type as string;
     switch (eventType) {
       case 'message_start': {
@@ -91,6 +85,7 @@ export default function ChatPage() {
         }]);
         setStreamingContent('');
         setIsResponding(false);
+        sendingRef.current = false;
         break;
       }
       case 'message_failed': {
@@ -103,6 +98,7 @@ export default function ChatPage() {
         }]);
         setStreamingContent('');
         setIsResponding(false);
+        sendingRef.current = false;
         break;
       }
       case 'chat_status': {
@@ -120,63 +116,48 @@ export default function ChatPage() {
     handleSSEEvent as unknown as (event: SSEEvent) => void,
   );
 
-  // Send message
+  // Send message - single API call, server auto-creates session
   const sendMessage = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isResponding) return;
+    if (!trimmed || isResponding || sendingRef.current) return;
 
-    let currentSessionId = sessionId;
-
-    // Create session if needed
-    if (!currentSessionId) {
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'create' }),
-        });
-        if (res.ok) {
-          const session = await res.json();
-          currentSessionId = session.id;
-          setSessionId(session.id);
-        }
-      } catch {
-        // ignore
-      }
-    }
+    sendingRef.current = true;
 
     // Add user message to UI immediately
     const tempId = `temp-${Date.now()}`;
     setMessages(prev => [...prev, { id: tempId, role: 'user', content: trimmed }]);
     setInput('');
 
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
 
-    // Send to API
     try {
-      await fetch('/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send', message: trimmed, sessionId: currentSessionId }),
+        body: JSON.stringify({ action: 'send', message: trimmed, sessionId }),
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sessionId) {
+          setSessionId(data.sessionId);
+        }
+      } else {
+        sendingRef.current = false;
+      }
     } catch {
-      // ignore
+      sendingRef.current = false;
     }
   };
 
-  // Stop response
   const stopResponse = async () => {
     try {
       await fetch('/api/chat', { method: 'DELETE' });
-    } catch {
-      // ignore
-    }
+    } catch {}
+    sendingRef.current = false;
   };
 
-  // New chat
   const newChat = async () => {
     if (isResponding) {
       await stopResponse();
@@ -185,17 +166,17 @@ export default function ChatPage() {
     setSessionId(null);
     setStreamingContent('');
     setIsResponding(false);
+    sendingRef.current = false;
   };
 
-  // Handle keyboard
+  // Handle keyboard - check isComposing for Korean IME
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       sendMessage();
     }
   };
 
-  // Auto-resize textarea
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     const textarea = e.target;
@@ -206,11 +187,11 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-zinc-800">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-zinc-100">Chat</h1>
+          <h1 className="text-lg font-semibold text-gray-900">Chat</h1>
           {sessionId && (
-            <span className="text-sm text-zinc-500">Session active</span>
+            <span className="text-sm text-gray-500">Session active</span>
           )}
           {connected && (
             <span className="inline-block w-2 h-2 rounded-full bg-green-500" title="Connected" />
@@ -231,8 +212,8 @@ export default function ChatPage() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
         {messages.length === 0 && !isResponding && (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-            <svg className="h-12 w-12 mb-4 text-zinc-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+            <svg className="h-12 w-12 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
             </svg>
             <p className="text-lg mb-2">Start a conversation</p>
@@ -245,13 +226,13 @@ export default function ChatPage() {
             <div className={`max-w-[80%] rounded-lg px-4 py-3 ${
               msg.role === 'user'
                 ? 'bg-blue-600 text-white'
-                : 'bg-zinc-800 text-zinc-100'
+                : 'bg-gray-100 text-gray-900 border border-gray-200'
             }`}>
               <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words">
                 {msg.content}
               </pre>
               {msg.role === 'assistant' && (msg.cost_usd || msg.duration_ms) && (
-                <div className="mt-2 pt-2 border-t border-zinc-700 text-xs text-zinc-500 flex gap-3">
+                <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-400 flex gap-3">
                   {msg.cost_usd != null && <span>${msg.cost_usd.toFixed(4)}</span>}
                   {msg.duration_ms != null && <span>{(msg.duration_ms / 1000).toFixed(1)}s</span>}
                 </div>
@@ -263,7 +244,7 @@ export default function ChatPage() {
         {/* Streaming response */}
         {isResponding && streamingContent && (
           <div className="flex justify-start">
-            <div className="max-w-[80%] rounded-lg px-4 py-3 bg-zinc-800 text-zinc-100">
+            <div className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900 border border-gray-200">
               <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words">
                 {streamingContent}
               </pre>
@@ -274,14 +255,14 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* Typing indicator (no content yet) */}
+        {/* Typing indicator */}
         {isResponding && !streamingContent && (
           <div className="flex justify-start">
-            <div className="rounded-lg px-4 py-3 bg-zinc-800">
+            <div className="rounded-lg px-4 py-3 bg-gray-100 border border-gray-200">
               <div className="flex gap-1">
-                <span className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -291,7 +272,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-800 px-6 py-4">
+      <div className="border-t border-gray-200 px-6 py-4">
         <div className="flex gap-3 items-end">
           <textarea
             ref={textareaRef}
@@ -301,7 +282,7 @@ export default function ChatPage() {
             placeholder="Type a message... (Enter to send, Shift+Enter for newline)"
             disabled={isResponding}
             rows={1}
-            className="flex-1 bg-zinc-800 text-zinc-100 rounded-lg px-4 py-3 resize-none border border-zinc-700 focus:border-blue-500 focus:outline-none placeholder-zinc-500 disabled:opacity-50 text-sm"
+            className="flex-1 bg-white text-gray-900 rounded-lg px-4 py-3 resize-none border border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder-gray-400 disabled:opacity-50 text-sm"
           />
           <Button
             variant="primary"

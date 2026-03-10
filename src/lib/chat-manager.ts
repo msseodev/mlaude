@@ -91,17 +91,17 @@ class ChatManagerImpl {
     return session;
   }
 
-  // Send a message in the current session
-  async sendMessage(content: string, sessionId?: string): Promise<void> {
-    const targetSessionId = sessionId || this.currentSessionId;
-    if (!targetSessionId) {
-      throw new Error('No active chat session');
+  // Send a message in the current session (auto-creates session if needed)
+  async sendMessage(content: string, sessionId?: string): Promise<{ sessionId: string }> {
+    let targetSessionId = sessionId || this.currentSessionId;
+
+    // Auto-create session if none exists
+    if (!targetSessionId || !getChatSession(targetSessionId)) {
+      const newSession = this.createSession();
+      targetSessionId = newSession.id;
     }
 
-    const session = getChatSession(targetSessionId);
-    if (!session) {
-      throw new Error('Chat session not found');
-    }
+    const session = getChatSession(targetSessionId)!;
 
     if (this.executor?.isRunning()) {
       throw new Error('Already responding to a message');
@@ -214,6 +214,8 @@ class ChatManagerImpl {
       model: session.model || undefined,
       systemPrompt: isFirstMessage ? systemPrompt : undefined,
     });
+
+    return { sessionId: targetSessionId };
   }
 
   // Stop current response

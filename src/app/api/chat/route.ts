@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
       if (!message) {
         return NextResponse.json({ error: 'Message is required' }, { status: 400 });
       }
-      await chatManager.sendMessage(message, sessionId);
-      return NextResponse.json({ ok: true });
+      const result = await chatManager.sendMessage(message, sessionId);
+      return NextResponse.json({ ok: true, sessionId: result.sessionId });
     }
 
     if (action === 'switch') {

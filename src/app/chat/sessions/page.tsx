@@ -30,20 +30,8 @@ export default function ChatSessionsPage() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    async function fetchSessions() {
-      try {
-        const res = await fetch('/api/chat/sessions');
-        if (res.ok && !cancelled) {
-          setSessions(await res.json());
-        }
-      } catch {
-        // ignore fetch errors
-      }
-    }
-    fetchSessions();
-    return () => { cancelled = true; };
-  }, []);
+    loadSessions();
+  }, [loadSessions]);
 
   const switchToSession = async (sessionId: string) => {
     try {
@@ -74,14 +62,14 @@ export default function ChatSessionsPage() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-zinc-100">Chat Sessions</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Chat Sessions</h1>
         <Button variant="primary" size="sm" onClick={() => router.push('/chat')}>
           New Chat
         </Button>
       </div>
 
       {sessions.length === 0 ? (
-        <div className="text-center py-12 text-zinc-500">
+        <div className="text-center py-12 text-gray-500">
           <p>No chat sessions yet.</p>
           <p className="text-sm mt-1">Start a new chat to begin.</p>
         </div>
@@ -90,14 +78,14 @@ export default function ChatSessionsPage() {
           {sessions.map((session) => (
             <div
               key={session.id}
-              className="flex items-center justify-between p-4 bg-zinc-900 rounded-lg border border-zinc-800 hover:border-zinc-700 transition-colors"
+              className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
             >
               <div
                 className="flex-1 cursor-pointer"
                 onClick={() => switchToSession(session.id)}
               >
-                <div className="font-medium text-zinc-100">{session.title}</div>
-                <div className="text-sm text-zinc-500 mt-1 flex gap-4">
+                <div className="font-medium text-gray-900">{session.title}</div>
+                <div className="text-sm text-gray-500 mt-1 flex gap-4">
                   <span>{session.message_count} messages</span>
                   {session.total_cost_usd > 0 && (
                     <span>${session.total_cost_usd.toFixed(4)}</span>

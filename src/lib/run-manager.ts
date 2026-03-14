@@ -312,13 +312,14 @@ class RunManagerImpl {
     // Update session's current prompt
     updateSession(this.currentSessionId, { current_prompt_id: prompt.id });
 
-    // Emit prompt_start event
+    // Emit prompt_start event (with plan progress if in plan mode)
     this.emit({
       type: 'prompt_start',
       data: {
         promptId: prompt.id,
         promptTitle: prompt.title,
         executionId: execution.id,
+        ...this.getPlanProgress(),
       },
       timestamp: new Date().toISOString(),
     });
@@ -394,7 +395,7 @@ class RunManagerImpl {
     // Re-fetch execution to get the updated wall-clock duration
     const updatedExecution = this.currentExecutionId ? getExecution(this.currentExecutionId) : null;
 
-    // Emit completion event
+    // Emit completion event (with plan progress if in plan mode)
     this.emit({
       type: result.isError ? 'prompt_failed' : 'prompt_complete',
       data: {
@@ -404,6 +405,7 @@ class RunManagerImpl {
         cost_usd: result.cost_usd,
         duration_ms: updatedExecution?.duration_ms ?? result.duration_ms,
         isError: result.isError,
+        ...this.getPlanProgress(),
       },
       timestamp: new Date().toISOString(),
     });
@@ -414,6 +416,21 @@ class RunManagerImpl {
 
     // Process next prompt in queue
     this.safeProcessNext();
+  }
+
+  /** Returns plan progress data to spread into SSE events, or empty object if not in plan mode */
+  private getPlanProgress(): Record<string, unknown> {
+    if (!this.currentPlanId || !this.currentSessionId) return {};
+    const runs = getPlanItemRuns(this.currentSessionId);
+    const total = runs.filter(r => r.status !== 'skipped').length;
+    const completed = runs.filter(r => r.status === 'completed' || r.status === 'failed').length;
+    const current = completed + 1; // the one currently running
+    const plan = getPlan(this.currentPlanId);
+    return {
+      planName: plan?.name ?? null,
+      planCurrent: current > total ? total : current,
+      planTotal: total,
+    };
   }
 
   private handleRateLimit(info: RateLimitInfo): void {

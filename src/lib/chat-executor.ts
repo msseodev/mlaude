@@ -81,8 +81,8 @@ export class ChatExecutor {
 
     // Read-only tools for chat mode
     args.push('--tools', 'Read,Glob,Grep,WebSearch,WebFetch');
-    // Use auto permission mode - allows read tools without prompting
-    args.push('--permission-mode', 'auto');
+    // Bypass permissions - non-interactive process can't respond to prompts
+    args.push('--permission-mode', 'bypassPermissions');
 
     // Build env without CLAUDECODE to prevent nesting
     const env = { ...process.env };

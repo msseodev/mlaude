@@ -7,7 +7,12 @@ import { getSetting } from '../db';
 import { PipelineExecutor } from './pipeline-executor';
 import type { PipelineResult } from './pipeline-executor';
 import { summarizeAgentOutputs, generateCommitMessage } from './summarizer';
-import type { AutoUserPrompt } from './types';
+import { runCommand } from './command-runner';
+import type { CommandResult } from './command-runner';
+import { scoreCycle } from './cycle-scorer';
+import { checkAndEvolve } from './prompt-evolver';
+import { getVariantHistory, updatePromptVariant } from './evolution-db';
+import type { AutoUserPrompt, AutoSettings } from './types';
 import {
   createAutoSession,
   getAutoSession,
@@ -727,6 +732,12 @@ class CycleEngineImpl {
       await gitManager.commitCycleResult(commitMsg);
     }
 
+    // Run evaluation commands and score the cycle
+    const evalResults = await this.runEvaluationCommands(session.target_project, settings);
+    const medianCost = this.getMedianCycleCost();
+    const score = scoreCycle(result, evalResults, result.agentRuns,
+      result.success && !!findingToFix, createdFindings.length, medianCost, settings.review_max_iterations);
+
     // Update cycle record
     const cycleStatus = result.success ? 'completed' : 'failed';
     updateAutoCycle(cycle.id, {
@@ -735,13 +746,44 @@ class CycleEngineImpl {
       cost_usd: result.totalCostUsd,
       duration_ms: result.totalDurationMs,
       completed_at: now,
+      build_passed: score.build_passed === null ? null : (score.build_passed ? 1 : 0),
+      lint_passed: score.lint_passed === null ? null : (score.lint_passed ? 1 : 0),
+      composite_score: score.composite_score,
+      score_breakdown: JSON.stringify(score),
     });
+
+    // Update evaluating variant stats for agents that ran in this cycle
+    if (cycleStatus === 'completed' && score.composite_score != null) {
+      for (const agentRun of result.agentRuns) {
+        const variants = getVariantHistory(agentRun.agent_id).filter(v => v.status === 'evaluating');
+        if (variants.length > 0) {
+          const variant = variants[0];
+          const newCyclesEvaluated = variant.cycles_evaluated + 1;
+          const prevTotal = (variant.avg_score ?? 0) * variant.cycles_evaluated;
+          const newAvgScore = (prevTotal + score.composite_score) / newCyclesEvaluated;
+          updatePromptVariant(variant.id, {
+            cycles_evaluated: newCyclesEvaluated,
+            avg_score: newAvgScore,
+          });
+        }
+      }
+    }
 
     // Update session totals
     updateAutoSession(this.currentSessionId, {
       total_cycles: session.total_cycles + 1,
       total_cost_usd: session.total_cost_usd + result.totalCostUsd,
     });
+
+    // Evolution check
+    if (settings.evolution_enabled &&
+        this.cycleNumber > 0 &&
+        this.cycleNumber % settings.evolution_interval === 0) {
+      const claudeBinary = getSetting('claude_binary') || 'claude';
+      await checkAndEvolve(
+        this.currentSessionId, this.cycleNumber, settings, claudeBinary, this.emit.bind(this)
+      );
+    }
 
     // Track consecutive failures
     if (!result.success) {
@@ -1034,6 +1076,31 @@ class CycleEngineImpl {
     }
 
     return true;
+  }
+
+  private async runEvaluationCommands(projectPath: string, settings: AutoSettings): Promise<{ build?: CommandResult; lint?: CommandResult }> {
+    const results: { build?: CommandResult; lint?: CommandResult } = {};
+    if (settings.build_command) {
+      const buildResult = await runCommand(settings.build_command, projectPath);
+      if (buildResult) results.build = buildResult;
+    }
+    if (settings.lint_command) {
+      const lintResult = await runCommand(settings.lint_command, projectPath);
+      if (lintResult) results.lint = lintResult;
+    }
+    return results;
+  }
+
+  private getMedianCycleCost(): number {
+    if (!this.currentSessionId) return 0;
+    const cycles = getAutoCyclesBySession(this.currentSessionId);
+    const costs = cycles
+      .filter(c => c.status === 'completed' && c.cost_usd != null && c.cost_usd > 0)
+      .map(c => c.cost_usd!)
+      .sort((a, b) => a - b);
+    if (costs.length === 0) return 0;
+    const mid = Math.floor(costs.length / 2);
+    return costs.length % 2 === 0 ? (costs[mid - 1] + costs[mid]) / 2 : costs[mid];
   }
 
   private completeSession(reason: string): void {

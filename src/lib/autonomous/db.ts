@@ -2,6 +2,7 @@ import { getDb } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 import type { AutoSession, AutoCycle, AutoFinding, AutoSettings, AutoUserPrompt, AutoAgent, AutoAgentRun } from './types';
 import { seedBuiltinAgents } from './seed-agents';
+import { initEvolutionTables } from './evolution-db';
 
 // --- Init ---
 
@@ -137,6 +138,28 @@ export function initAutoTables(): void {
   // Re-seed to populate model for built-in agents
   seedBuiltinAgents(db);
 
+  // Migration: add cycle scoring columns to auto_cycles
+  try {
+    db.exec('ALTER TABLE auto_cycles ADD COLUMN build_passed INTEGER');
+  } catch {
+    // Column already exists
+  }
+  try {
+    db.exec('ALTER TABLE auto_cycles ADD COLUMN lint_passed INTEGER');
+  } catch {
+    // Column already exists
+  }
+  try {
+    db.exec('ALTER TABLE auto_cycles ADD COLUMN composite_score REAL');
+  } catch {
+    // Column already exists
+  }
+  try {
+    db.exec('ALTER TABLE auto_cycles ADD COLUMN score_breakdown TEXT');
+  } catch {
+    // Column already exists
+  }
+
   // Insert default settings if not exist
   const insertSetting = db.prepare(
     'INSERT OR IGNORE INTO auto_settings (key, value) VALUES (?, ?)'
@@ -156,6 +179,16 @@ export function initAutoTables(): void {
   insertSetting.run('skip_designer_for_fixes', 'true');
   insertSetting.run('require_initial_prompt', 'false');
   insertSetting.run('max_designer_iterations', '2');
+  // v3 settings: generic evaluation commands
+  insertSetting.run('build_command', '');
+  insertSetting.run('lint_command', '');
+  // v4 settings: prompt evolution
+  insertSetting.run('evolution_enabled', 'false');
+  insertSetting.run('evolution_interval', '10');
+  insertSetting.run('evolution_window', '5');
+
+  // Initialize evolution tables
+  initEvolutionTables();
 }
 
 // Initialize tables on first import
@@ -238,7 +271,7 @@ export function getAutoCycle(id: string): AutoCycle | undefined {
   return db.prepare('SELECT * FROM auto_cycles WHERE id = ?').get(id) as AutoCycle | undefined;
 }
 
-export function updateAutoCycle(id: string, data: Partial<Pick<AutoCycle, 'status' | 'output' | 'cost_usd' | 'duration_ms' | 'completed_at' | 'test_pass_count' | 'test_fail_count' | 'test_total_count'>>): AutoCycle | undefined {
+export function updateAutoCycle(id: string, data: Partial<Pick<AutoCycle, 'status' | 'output' | 'cost_usd' | 'duration_ms' | 'completed_at' | 'test_pass_count' | 'test_fail_count' | 'test_total_count' | 'build_passed' | 'lint_passed' | 'composite_score' | 'score_breakdown'>>): AutoCycle | undefined {
   const db = getDb();
   const existing = getAutoCycle(id);
   if (!existing) return undefined;
@@ -251,10 +284,14 @@ export function updateAutoCycle(id: string, data: Partial<Pick<AutoCycle, 'statu
   const testPassCount = data.test_pass_count !== undefined ? data.test_pass_count : existing.test_pass_count;
   const testFailCount = data.test_fail_count !== undefined ? data.test_fail_count : existing.test_fail_count;
   const testTotalCount = data.test_total_count !== undefined ? data.test_total_count : existing.test_total_count;
+  const buildPassed = data.build_passed !== undefined ? data.build_passed : existing.build_passed;
+  const lintPassed = data.lint_passed !== undefined ? data.lint_passed : existing.lint_passed;
+  const compositeScore = data.composite_score !== undefined ? data.composite_score : existing.composite_score;
+  const scoreBreakdown = data.score_breakdown !== undefined ? data.score_breakdown : existing.score_breakdown;
 
   db.prepare(
-    'UPDATE auto_cycles SET status = ?, output = ?, cost_usd = ?, duration_ms = ?, completed_at = ?, test_pass_count = ?, test_fail_count = ?, test_total_count = ? WHERE id = ?'
-  ).run(status, output, costUsd, durationMs, completedAt, testPassCount, testFailCount, testTotalCount, id);
+    'UPDATE auto_cycles SET status = ?, output = ?, cost_usd = ?, duration_ms = ?, completed_at = ?, test_pass_count = ?, test_fail_count = ?, test_total_count = ?, build_passed = ?, lint_passed = ?, composite_score = ?, score_breakdown = ? WHERE id = ?'
+  ).run(status, output, costUsd, durationMs, completedAt, testPassCount, testFailCount, testTotalCount, buildPassed, lintPassed, compositeScore, scoreBreakdown, id);
 
   return getAutoCycle(id);
 }
@@ -379,6 +416,8 @@ export function getAllAutoSettings(): AutoSettings {
   return {
     target_project: getAutoSetting('target_project') ?? '',
     test_command: getAutoSetting('test_command') ?? 'npm test',
+    build_command: getAutoSetting('build_command') ?? '',
+    lint_command: getAutoSetting('lint_command') ?? '',
     max_cycles: Number(getAutoSetting('max_cycles') ?? '0'),
     budget_usd: Number(getAutoSetting('budget_usd') ?? '0'),
     discovery_interval: Number(getAutoSetting('discovery_interval') ?? '10'),
@@ -392,6 +431,10 @@ export function getAllAutoSettings(): AutoSettings {
     skip_designer_for_fixes: getAutoSetting('skip_designer_for_fixes') !== 'false',
     require_initial_prompt: getAutoSetting('require_initial_prompt') === 'true',
     max_designer_iterations: Number(getAutoSetting('max_designer_iterations') ?? '2'),
+    // v4 settings: prompt evolution
+    evolution_enabled: getAutoSetting('evolution_enabled') === 'true',
+    evolution_interval: Number(getAutoSetting('evolution_interval') ?? '10'),
+    evolution_window: Number(getAutoSetting('evolution_window') ?? '5'),
   };
 }
 

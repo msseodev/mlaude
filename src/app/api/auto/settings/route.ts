@@ -25,6 +25,10 @@ export async function PUT(request: NextRequest) {
       'max_retries', 'max_consecutive_failures',
       // v2 settings
       'review_max_iterations', 'skip_designer_for_fixes', 'require_initial_prompt',
+      // v3 settings: generic evaluation commands
+      'build_command', 'lint_command',
+      // v4 settings: prompt evolution
+      'evolution_enabled', 'evolution_interval', 'evolution_window',
     ];
 
     for (const key of settingKeys) {

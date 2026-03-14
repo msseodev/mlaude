@@ -6,6 +6,7 @@ export type FindingCategory = 'bug' | 'improvement' | 'idea' | 'test_failure' | 
 export type FindingPriority = 'P0' | 'P1' | 'P2' | 'P3';
 export type FindingStatus = 'open' | 'in_progress' | 'resolved' | 'wont_fix' | 'duplicate';
 export type AgentRunStatus = 'running' | 'completed' | 'failed' | 'skipped';
+export type PromptVariantStatus = 'active' | 'evaluating' | 'retired' | 'original';
 
 // --- DB Entities ---
 export interface AutoSession {
@@ -35,6 +36,10 @@ export interface AutoCycle {
   test_pass_count: number | null;
   test_fail_count: number | null;
   test_total_count: number | null;
+  build_passed: number | null;       // SQLite 0/1
+  lint_passed: number | null;        // SQLite 0/1
+  composite_score: number | null;    // 0~100
+  score_breakdown: string | null;    // JSON string of CycleScore
   started_at: string;
   completed_at: string | null;
 }
@@ -101,9 +106,23 @@ export interface AutoAgentRun {
   completed_at: string | null;
 }
 
+export interface PromptVariant {
+  id: string;
+  agent_id: string;
+  system_prompt: string;
+  parent_variant_id: string | null;
+  generation: number;
+  status: PromptVariantStatus;
+  avg_score: number | null;
+  cycles_evaluated: number;
+  created_at: string;
+}
+
 export interface AutoSettings {
   target_project: string;
   test_command: string;
+  build_command: string;     // default: '' (empty = skip)
+  lint_command: string;      // default: '' (empty = skip)
   max_cycles: number;        // 0 = unlimited
   budget_usd: number;        // 0 = unlimited
   discovery_interval: number; // every N cycles
@@ -116,6 +135,9 @@ export interface AutoSettings {
   skip_designer_for_fixes: boolean;
   require_initial_prompt: boolean;
   max_designer_iterations: number;
+  evolution_enabled: boolean;    // default: false
+  evolution_interval: number;    // default: 10
+  evolution_window: number;      // default: 5
 }
 
 // --- SSE Event types ---
@@ -141,6 +163,10 @@ export type AutoSSEEventType =
   | 'agent_failed'
   | 'review_iteration'
   | 'user_prompt_added'
+  | 'evolution_started'
+  | 'evolution_completed'
+  | 'prompt_mutated'
+  | 'prompt_rollback'
   | 'error';
 
 export interface AutoSSEEvent {

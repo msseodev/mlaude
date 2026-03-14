@@ -10,6 +10,8 @@ export default function AutoSettingsPage() {
   const [form, setForm] = useState<AutoSettings>({
     target_project: '',
     test_command: '',
+    build_command: '',
+    lint_command: '',
     max_cycles: 0,
     budget_usd: 0,
     discovery_interval: 5,
@@ -22,6 +24,9 @@ export default function AutoSettingsPage() {
     skip_designer_for_fixes: true,
     require_initial_prompt: false,
     max_designer_iterations: 2,
+    evolution_enabled: false,
+    evolution_interval: 10,
+    evolution_window: 5,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +129,44 @@ export default function AutoSettingsPage() {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="npm test"
             />
+          </div>
+
+          <div>
+            <label htmlFor="auto-build-command" className="mb-1 block text-sm font-medium text-gray-700">
+              빌드 명령어
+            </label>
+            <input
+              id="auto-build-command"
+              type="text"
+              value={form.build_command}
+              onChange={(e) =>
+                setForm({ ...form, build_command: e.target.value })
+              }
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="e.g., ./gradlew build, flutter build, cargo build"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              비어있으면 건너뜁니다
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="auto-lint-command" className="mb-1 block text-sm font-medium text-gray-700">
+              린트 명령어
+            </label>
+            <input
+              id="auto-lint-command"
+              type="text"
+              value={form.lint_command}
+              onChange={(e) =>
+                setForm({ ...form, lint_command: e.target.value })
+              }
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="e.g., ./gradlew lint, flutter analyze, cargo clippy"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              비어있으면 건너뜁니다
+            </p>
           </div>
 
           <div>
@@ -313,6 +356,59 @@ export default function AutoSettingsPage() {
               Require initial prompt to start
             </label>
           </div>
+
+          <hr className="border-gray-200" />
+
+          <div className="flex items-center gap-3">
+            <input
+              id="auto-evolution-enabled"
+              type="checkbox"
+              checked={form.evolution_enabled}
+              onChange={(e) => setForm({ ...form, evolution_enabled: e.target.checked })}
+              className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+            />
+            <label htmlFor="auto-evolution-enabled" className="text-sm font-medium text-gray-700">
+              프롬프트 진화
+            </label>
+          </div>
+
+          {form.evolution_enabled && (
+            <>
+              <div>
+                <label htmlFor="auto-evolution-interval" className="mb-1 block text-sm font-medium text-gray-700">
+                  진화 주기 (사이클)
+                </label>
+                <input
+                  id="auto-evolution-interval"
+                  type="number"
+                  min={1}
+                  value={form.evolution_interval}
+                  onChange={(e) => setForm({ ...form, evolution_interval: parseInt(e.target.value, 10) || 1 })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  N 사이클마다 프롬프트 진화를 평가합니다
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="auto-evolution-window" className="mb-1 block text-sm font-medium text-gray-700">
+                  평가 윈도우 (사이클)
+                </label>
+                <input
+                  id="auto-evolution-window"
+                  type="number"
+                  min={3}
+                  value={form.evolution_window}
+                  onChange={(e) => setForm({ ...form, evolution_window: parseInt(e.target.value, 10) || 3 })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  성과를 평가할 최근 사이클 수
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {saveError && (

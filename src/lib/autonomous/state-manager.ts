@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import type { AutoSession, AutoCycle, AutoFinding } from './types';
 
@@ -9,7 +10,11 @@ export class StateManager {
   private statePath: string;
 
   constructor(private workingDirectory: string) {
-    this.statePath = path.join(workingDirectory, STATE_DIR, STATE_FILE);
+    const resolved = workingDirectory.startsWith('~')
+      ? path.join(os.homedir(), workingDirectory.slice(1))
+      : workingDirectory;
+    this.workingDirectory = resolved;
+    this.statePath = path.join(resolved, STATE_DIR, STATE_FILE);
   }
 
   /**

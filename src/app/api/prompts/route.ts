@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrompts, createPrompt } from '@/lib/db';
+import { getPrompts, getPromptPlanMap, createPrompt } from '@/lib/db';
 
 export async function GET() {
   try {
     const prompts = getPrompts();
-    return NextResponse.json(prompts);
+    const planMap = getPromptPlanMap();
+    const result = prompts.map((p) => ({
+      ...p,
+      plans: planMap[p.id] || [],
+    }));
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch prompts' },

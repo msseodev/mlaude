@@ -143,6 +143,24 @@ export function getPrompts(): Prompt[] {
   return db.prepare('SELECT * FROM prompts ORDER BY queue_order ASC').all() as Prompt[];
 }
 
+/** Returns a map of prompt_id -> array of { plan_id, plan_name } */
+export function getPromptPlanMap(): Record<string, { plan_id: string; plan_name: string }[]> {
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT pi.prompt_id, p.id as plan_id, p.name as plan_name
+     FROM plan_items pi
+     JOIN plans p ON pi.plan_id = p.id
+     ORDER BY p.name ASC`
+  ).all() as { prompt_id: string; plan_id: string; plan_name: string }[];
+
+  const map: Record<string, { plan_id: string; plan_name: string }[]> = {};
+  for (const row of rows) {
+    if (!map[row.prompt_id]) map[row.prompt_id] = [];
+    map[row.prompt_id].push({ plan_id: row.plan_id, plan_name: row.plan_name });
+  }
+  return map;
+}
+
 export function getPrompt(id: string): Prompt | undefined {
   const db = getDb();
   return db.prepare('SELECT * FROM prompts WHERE id = ?').get(id) as Prompt | undefined;

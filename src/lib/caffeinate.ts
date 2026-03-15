@@ -33,7 +33,15 @@ export class CaffeinateManager {
     // Only run on macOS
     if (process.platform !== 'darwin') return;
     try {
-      this.process = spawn('caffeinate', ['-dis'], {
+      // -d: prevent display sleep (keeps Wi-Fi out of power save mode)
+      // -i: prevent idle sleep
+      // -s: prevent system sleep
+      // -m: prevent disk sleep
+      // Note: -d is critical — display sleep triggers Wi-Fi power save,
+      // which throttles/drops long-lived TCP connections to Anthropic API.
+      // TODO: If display always-on is undesirable, consider using
+      // `pmset -a tcpkeepalive 1` + `pmset -a sleep 0` instead.
+      this.process = spawn('caffeinate', ['-dims'], {
         stdio: 'ignore',
         detached: false,
       });

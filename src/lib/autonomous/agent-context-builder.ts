@@ -26,7 +26,36 @@ export function buildAgentContext(agent: AutoAgent, ctx: AgentContext): string {
   // 1. Agent system prompt
   parts.push(agent.system_prompt);
 
-  // 2. User Prompt
+  // 2. CEO responses (highest priority — placed right after system prompt)
+  if (ctx.ceoRequests && ctx.ceoRequests.length > 0) {
+    const answered = ctx.ceoRequests.filter(r => r.status === 'approved' || r.status === 'rejected' || r.status === 'answered');
+    const pending = ctx.ceoRequests.filter(r => r.status === 'pending');
+
+    if (answered.length > 0) {
+      const ceoParts: string[] = [
+        '\n⚠️ IMPORTANT: CEO 지시사항 — 반드시 아래 내용을 작업에 반영하세요.',
+        '',
+      ];
+      for (const r of answered) {
+        const statusKo = r.status === 'approved' ? '승인' : r.status === 'rejected' ? '거부' : '답변';
+        ceoParts.push(`[${statusKo}] ${r.title}`);
+        ceoParts.push(`  요청: ${r.description}`);
+        ceoParts.push(`  CEO 응답: ${r.ceo_response}`);
+        ceoParts.push('');
+      }
+      parts.push(ceoParts.join('\n'));
+    }
+
+    if (pending.length > 0) {
+      const pendingParts = ['[CEO 대기중 요청 — 중복 요청하지 마세요]'];
+      for (const r of pending) {
+        pendingParts.push(`- ${r.title} (${r.type})`);
+      }
+      parts.push(pendingParts.join('\n'));
+    }
+  }
+
+  // 3. User Prompt
   if (ctx.userPrompt) {
     parts.push(`\n[User Prompt]\n${ctx.userPrompt}`);
   }
@@ -99,33 +128,6 @@ export function buildAgentContext(agent: AutoAgent, ctx: AgentContext): string {
     parts.push(
       `\n[앱 화면 캡처]\n다음 이미지 파일들은 앱의 현재 상태를 순서대로 캡처한 것입니다.\n각 이미지를 Read 도구로 확인하여 UI/UX를 분석하세요:\n${frameList}`,
     );
-  }
-
-  // 9. CEO requests/responses
-  if (ctx.ceoRequests && ctx.ceoRequests.length > 0) {
-    const pending = ctx.ceoRequests.filter(r => r.status === 'pending');
-    const answered = ctx.ceoRequests.filter(r => r.status !== 'pending');
-
-    const ceoParts: string[] = ['\n[CEO 요청/응답]'];
-
-    if (answered.length > 0) {
-      ceoParts.push('CEO가 응답한 항목:');
-      for (const r of answered) {
-        ceoParts.push(`- [${r.status}] ${r.title}: ${r.ceo_response}`);
-      }
-    }
-
-    if (pending.length > 0) {
-      ceoParts.push('대기 중인 요청 (이미 요청됨, 중복 요청하지 마세요):');
-      for (const r of pending) {
-        ceoParts.push(`- ${r.title} (${r.type})`);
-      }
-    }
-
-    ceoParts.push('\nCEO에게 새 요청이 필요하면 출력에 포함하세요:');
-    ceoParts.push('{ "ceo_requests": [{ "type": "permission|resource|decision|information", "title": "제목", "description": "상세 설명", "blocking": false }] }');
-
-    parts.push(ceoParts.join('\n'));
   }
 
   return parts.join('\n\n');

@@ -112,13 +112,7 @@ class CycleEngineImpl {
       throw new Error('Autonomous mode is already running');
     }
 
-    // Guard: manual mode active
-    // Dynamic import to avoid circular dependency
-    const { runManager } = await import('../run-manager');
-    const manualStatus = runManager.getStatus();
-    if (manualStatus.status !== 'idle') {
-      throw new Error('Cannot start autonomous mode while manual queue is running');
-    }
+    // Note: manual mode and auto mode can run in parallel on different projects
 
     // Init tables
     initAutoTables();

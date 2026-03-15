@@ -73,11 +73,7 @@ class RunManagerImpl {
       throw new Error('Queue is already running');
     }
 
-    // Guard: autonomous mode must not be active
-    const { autoEngine } = await import('./autonomous/cycle-engine');
-    if (autoEngine.getStatus().status !== 'idle') {
-      throw new Error('Cannot start manual queue while autonomous mode is active');
-    }
+    // Note: manual mode and auto mode can run in parallel on different projects
     if (this.currentSessionId) {
       await this.stopQueue();
     }

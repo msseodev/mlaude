@@ -65,6 +65,11 @@ const PLANNER_AGENT_NAMES = new Set(['product_designer', 'ux_planner']);
 export class PipelineExecutor {
   private currentExecutor: ClaudeExecutor | null = null;
   private aborted = false;
+  private lastActivityAt: string = new Date().toISOString();
+  private currentAgentName: string | null = null;
+  private currentAgentStartedAt: string | null = null;
+  private totalOutputSize: number = 0;
+  private totalCostSoFar: number = 0;
 
   constructor(
     private session: AutoSession,
@@ -73,6 +78,22 @@ export class PipelineExecutor {
     private emit: (event: AutoSSEEvent) => void,
     private finding?: AutoFinding | null,
   ) {}
+
+  getActivityInfo(): {
+    lastActivityAt: string;
+    currentAgentName: string | null;
+    currentAgentStartedAt: string | null;
+    totalOutputSize: number;
+    totalCostSoFar: number;
+  } {
+    return {
+      lastActivityAt: this.lastActivityAt,
+      currentAgentName: this.currentAgentName,
+      currentAgentStartedAt: this.currentAgentStartedAt,
+      totalOutputSize: this.totalOutputSize,
+      totalCostSoFar: this.totalCostSoFar,
+    };
+  }
 
   async execute(): Promise<PipelineResult> {
     const settings = getAllAutoSettings();
@@ -494,12 +515,19 @@ export class PipelineExecutor {
 
       const claudeBinary = getSetting('claude_binary') || 'claude';
 
+      // Track current agent for watchdog diagnostics
+      this.currentAgentName = agent.display_name;
+      this.currentAgentStartedAt = new Date().toISOString();
+
       this.currentExecutor = new ClaudeExecutor(
         claudeBinary,
         // onEvent
         (event: SSEEvent) => {
           if (event.type === 'text_delta') {
-            output += (event.data.text as string) || '';
+            const text = (event.data.text as string) || '';
+            output += text;
+            this.lastActivityAt = new Date().toISOString();
+            this.totalOutputSize += Buffer.byteLength(text, 'utf-8');
           }
           this.emit({
             type: event.type as AutoSSEEvent['type'],
@@ -531,6 +559,7 @@ export class PipelineExecutor {
           const now = new Date().toISOString();
           const status = result.isError ? 'failed' : 'completed';
           const finalOutput = result.output || output;
+          this.totalCostSoFar += result.cost_usd ?? 0;
           const updated = updateAutoAgentRun(agentRun.id, {
             status: status as AutoAgentRun['status'],
             output: finalOutput,

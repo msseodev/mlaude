@@ -6,6 +6,7 @@ import { caffeinateManager } from '../caffeinate';
 import { getSetting } from '../db';
 import { PipelineExecutor } from './pipeline-executor';
 import type { PipelineResult } from './pipeline-executor';
+import { Watchdog } from './watchdog';
 import { summarizeAgentOutputs, generateCommitMessage } from './summarizer';
 import { runCommand } from './command-runner';
 import type { CommandResult } from './command-runner';
@@ -76,6 +77,7 @@ class CycleEngineImpl {
   private isPauseAfterCycle: boolean = false;
   private isStopping: boolean = false;
   private codebaseSummaryCache: string | null = null;
+  private watchdog: Watchdog = new Watchdog();
 
   // SSE listener management (identical pattern to RunManager)
   addListener(listener: (event: AutoSSEEvent) => void): () => void {
@@ -161,6 +163,7 @@ class CycleEngineImpl {
 
   async stop(): Promise<void> {
     this.isStopping = true;
+    this.watchdog.stop();
 
     this.pipelineExecutor?.abort();
     this.pipelineExecutor = null;
@@ -204,6 +207,7 @@ class CycleEngineImpl {
     }
 
     this.isPaused = true;
+    this.watchdog.stop();
 
     this.pipelineExecutor?.abort();
     this.pipelineExecutor = null;
@@ -624,7 +628,43 @@ class CycleEngineImpl {
       findingToFix,
     );
 
+    // Start watchdog to detect stuck cycles
+    this.watchdog.start(
+      () => {
+        if (!this.currentCycleId || !this.pipelineExecutor) return null;
+        const activityInfo = this.pipelineExecutor.getActivityInfo();
+        const cycleRecord = getAutoCycle(this.currentCycleId);
+        const sessionRecord = this.currentSessionId ? getAutoSession(this.currentSessionId) : null;
+        return {
+          cycleId: this.currentCycleId,
+          cycleNumber: this.cycleNumber,
+          startedAt: cycleRecord?.started_at || new Date().toISOString(),
+          elapsedMs: Date.now() - new Date(cycleRecord?.started_at || Date.now()).getTime(),
+          currentAgentName: activityInfo.currentAgentName,
+          agentStartedAt: activityInfo.currentAgentStartedAt,
+          lastOutputAt: activityInfo.lastActivityAt,
+          outputSizeBytes: activityInfo.totalOutputSize,
+          outputGrowthSinceLastCheck: 0, // filled by watchdog
+          findingTitle: findingToFix?.title || null,
+          sessionTotalCost: sessionRecord?.total_cost_usd || 0,
+          cycleCost: activityInfo.totalCostSoFar,
+        };
+      },
+      () => {
+        this.emit({
+          type: 'error',
+          data: { message: 'Watchdog killed stuck cycle', cycleId: this.currentCycleId },
+          timestamp: new Date().toISOString(),
+        });
+        this.pipelineExecutor?.abort();
+      },
+      (message) => {
+        console.log(message);
+      },
+    );
+
     const result = await this.pipelineExecutor.execute();
+    this.watchdog.stop();
     this.pipelineExecutor = null;
 
     // Handle rate limit

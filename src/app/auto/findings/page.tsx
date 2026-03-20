@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
+import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
 import type { AutoFinding, FindingStatus, FindingPriority } from '@/types';
 
 type BadgeVariant = 'gray' | 'blue' | 'green' | 'yellow' | 'red' | 'purple';
@@ -462,10 +463,10 @@ export default function FindingsPage() {
                 Description
               </p>
               <div
-                className="max-h-80 overflow-y-auto rounded p-3 font-mono text-xs leading-relaxed text-gray-100 whitespace-pre-wrap"
+                className="max-h-80 overflow-y-auto rounded p-3 text-xs leading-relaxed text-gray-100"
                 style={{ backgroundColor: '#1E1E1E' }}
               >
-                {selectedFinding.description || '(no description)'}
+                {selectedFinding.description ? <MarkdownOutput text={selectedFinding.description} /> : '(no description)'}
               </div>
             </div>
           </div>

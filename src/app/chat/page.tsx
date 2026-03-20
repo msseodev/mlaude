@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSSE } from '@/hooks/useSSE';
 import { Button } from '@/components/ui/Button';
+import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
 import type { SSEEvent } from '@/types';
 
 interface Message {
@@ -228,9 +229,9 @@ export default function ChatPage() {
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-900 border border-gray-200'
             }`}>
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words">
-                {msg.content}
-              </pre>
+              <div className="text-sm leading-relaxed break-words">
+                {msg.role === 'assistant' ? <MarkdownOutput text={msg.content} /> : <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>}
+              </div>
               {msg.role === 'assistant' && (msg.cost_usd || msg.duration_ms) && (
                 <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-400 flex gap-3">
                   {msg.cost_usd != null && <span>${msg.cost_usd.toFixed(4)}</span>}
@@ -245,9 +246,9 @@ export default function ChatPage() {
         {isResponding && streamingContent && (
           <div className="flex justify-start">
             <div className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900 border border-gray-200">
-              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed break-words">
-                {streamingContent}
-              </pre>
+              <div className="text-sm leading-relaxed break-words">
+                <MarkdownOutput text={streamingContent} />
+              </div>
               <div className="mt-1">
                 <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
               </div>

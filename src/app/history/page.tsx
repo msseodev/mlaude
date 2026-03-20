@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Badge, statusBadgeVariant } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
 import type { Execution } from '@/types';
 
 export default function HistoryPage() {
@@ -193,10 +194,10 @@ export default function HistoryPage() {
             <div>
               <p className="mb-1 text-sm font-medium text-gray-700">Output</p>
               <div
-                className="max-h-80 overflow-y-auto rounded p-3 font-mono text-xs leading-relaxed text-gray-100 whitespace-pre-wrap"
+                className="max-h-80 overflow-y-auto rounded p-3 text-xs leading-relaxed text-gray-100"
                 style={{ backgroundColor: '#1E1E1E' }}
               >
-                {detail.output || '(no output)'}
+                {detail.output ? <MarkdownOutput text={detail.output} /> : '(no output)'}
               </div>
             </div>
           </div>

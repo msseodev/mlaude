@@ -129,6 +129,7 @@ function AgentEditModal({
       open={open}
       onClose={onClose}
       title={isEdit ? 'Edit Agent' : 'New Agent'}
+      size="xl"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>

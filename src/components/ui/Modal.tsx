@@ -8,9 +8,18 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 }
 
-export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+const sizeClasses = {
+  sm: 'max-w-sm',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
+  '2xl': 'max-w-6xl',
+};
+
+export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const handleKeyDown = useCallback(
@@ -74,7 +83,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="mx-4 w-full max-w-lg rounded-lg bg-white shadow-xl"
+        className={`mx-4 w-full ${sizeClasses[size]} rounded-lg bg-white shadow-xl`}
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 id="modal-title" className="text-lg font-semibold text-gray-900">{title}</h2>

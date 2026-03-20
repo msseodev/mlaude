@@ -1,169 +1,100 @@
 'use client';
 
 import { useMemo } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface MarkdownOutputProps {
   text: string;
 }
 
-type Block =
-  | { kind: 'code'; lang: string; content: string }
-  | { kind: 'lines'; lines: string[] };
+export function MarkdownOutput({ text }: MarkdownOutputProps) {
+  const components = useMemo(() => ({
+    code({ className, children, ...props }: React.ComponentProps<'code'> & { inline?: boolean }) {
+      const match = /language-(\w+)/.exec(className || '');
+      const codeString = String(children).replace(/\n$/, '');
 
-function parseBlocks(text: string): Block[] {
-  const rawLines = text.split('\n');
-  const blocks: Block[] = [];
-  let currentLines: string[] = [];
-  let inCode = false;
-  let codeLang = '';
-  let codeLines: string[] = [];
-
-  for (const line of rawLines) {
-    if (!inCode) {
-      const fenceMatch = line.match(/^```(\w*)$/);
-      if (fenceMatch) {
-        // Flush accumulated plain lines
-        if (currentLines.length > 0) {
-          blocks.push({ kind: 'lines', lines: currentLines });
-          currentLines = [];
-        }
-        inCode = true;
-        codeLang = fenceMatch[1];
-        codeLines = [];
-      } else {
-        currentLines.push(line);
+      if (match) {
+        return (
+          <SyntaxHighlighter
+            style={oneDark}
+            language={match[1]}
+            PreTag="div"
+            customStyle={{ margin: '0.25rem 0', borderRadius: '0.375rem', fontSize: '0.8rem' }}
+          >
+            {codeString}
+          </SyntaxHighlighter>
+        );
       }
-    } else {
-      if (line.match(/^```$/)) {
-        blocks.push({ kind: 'code', lang: codeLang, content: codeLines.join('\n') });
-        inCode = false;
-        codeLang = '';
-        codeLines = [];
-      } else {
-        codeLines.push(line);
-      }
-    }
-  }
 
-  // Handle unclosed code block
-  if (inCode) {
-    blocks.push({ kind: 'code', lang: codeLang, content: codeLines.join('\n') });
-  }
-
-  // Flush remaining plain lines
-  if (currentLines.length > 0) {
-    blocks.push({ kind: 'lines', lines: currentLines });
-  }
-
-  return blocks;
-}
-
-function renderInline(text: string): React.ReactNode[] {
-  // Process inline code and bold markers
-  const nodes: React.ReactNode[] = [];
-  // Pattern: `code` or **bold**
-  const pattern = /(`[^`]+`|\*\*[^*]+\*\*)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(text)) !== null) {
-    // Text before the match
-    if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index));
-    }
-    const token = match[0];
-    if (token.startsWith('`')) {
       // Inline code
-      nodes.push(
+      return (
         <code
-          key={match.index}
-          className="rounded px-1 py-0.5"
+          className="rounded px-1 py-0.5 text-gray-100"
           style={{ backgroundColor: '#2D2D2D' }}
+          {...props}
         >
-          {token.slice(1, -1)}
+          {children}
         </code>
       );
-    } else if (token.startsWith('**')) {
-      // Bold
-      nodes.push(
-        <strong key={match.index} className="font-bold text-white">
-          {token.slice(2, -2)}
-        </strong>
+    },
+    pre({ children }: React.ComponentProps<'pre'>) {
+      // SyntaxHighlighter renders its own <pre>, so just pass through
+      return <>{children}</>;
+    },
+    h1({ children }: React.ComponentProps<'h1'>) {
+      return <div className="text-base font-bold text-white mt-2 mb-1">{children}</div>;
+    },
+    h2({ children }: React.ComponentProps<'h2'>) {
+      return <div className="text-sm font-bold text-white mt-2 mb-1">{children}</div>;
+    },
+    h3({ children }: React.ComponentProps<'h3'>) {
+      return <div className="text-sm font-bold text-white mt-1 mb-0.5">{children}</div>;
+    },
+    p({ children }: React.ComponentProps<'p'>) {
+      return <p className="my-0.5">{children}</p>;
+    },
+    ul({ children }: React.ComponentProps<'ul'>) {
+      return <ul className="ml-4 list-disc space-y-0.5">{children}</ul>;
+    },
+    ol({ children }: React.ComponentProps<'ol'>) {
+      return <ol className="ml-4 list-decimal space-y-0.5">{children}</ol>;
+    },
+    li({ children }: React.ComponentProps<'li'>) {
+      return <li className="text-gray-300">{children}</li>;
+    },
+    table({ children }: React.ComponentProps<'table'>) {
+      return (
+        <div className="my-1 overflow-x-auto">
+          <table className="min-w-full text-sm border-collapse border border-gray-600">{children}</table>
+        </div>
       );
-    }
-    lastIndex = match.index + token.length;
-  }
+    },
+    th({ children }: React.ComponentProps<'th'>) {
+      return <th className="border border-gray-600 bg-gray-700 px-2 py-1 text-left text-gray-200">{children}</th>;
+    },
+    td({ children }: React.ComponentProps<'td'>) {
+      return <td className="border border-gray-600 px-2 py-1 text-gray-300">{children}</td>;
+    },
+    strong({ children }: React.ComponentProps<'strong'>) {
+      return <strong className="font-bold text-white">{children}</strong>;
+    },
+    a({ href, children }: React.ComponentProps<'a'>) {
+      return <a href={href} className="text-blue-400 underline" target="_blank" rel="noopener noreferrer">{children}</a>;
+    },
+    blockquote({ children }: React.ComponentProps<'blockquote'>) {
+      return <blockquote className="border-l-2 border-gray-500 pl-3 text-gray-400 my-1">{children}</blockquote>;
+    },
+    hr() {
+      return <hr className="my-2 border-gray-600" />;
+    },
+  }), []);
 
-  // Remaining text
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
-  }
-
-  return nodes;
-}
-
-function renderLine(line: string, index: number): React.ReactNode {
-  // Headers
-  const headerMatch = line.match(/^(#{1,3})\s+(.+)$/);
-  if (headerMatch) {
-    const level = headerMatch[1].length;
-    const content = headerMatch[2];
-    const sizeClass = level === 1 ? 'text-base' : level === 2 ? 'text-sm' : 'text-sm';
-    return (
-      <div key={index} className={`${sizeClass} font-bold text-white`}>
-        {renderInline(content)}
-      </div>
-    );
-  }
-
-  // List items (- or *)
-  const listMatch = line.match(/^(\s*)[*-]\s+(.+)$/);
-  if (listMatch) {
-    const indent = listMatch[1].length;
-    const content = listMatch[2];
-    return (
-      <div key={index} className="flex" style={{ paddingLeft: `${1 + indent * 0.5}rem` }}>
-        <span className="mr-2 select-none text-gray-500">&bull;</span>
-        <span>{renderInline(content)}</span>
-      </div>
-    );
-  }
-
-  // Empty line
-  if (line === '') {
-    return <div key={index} className="h-1" />;
-  }
-
-  // Regular text with inline formatting
-  return <span key={index}>{renderInline(line)}{'\n'}</span>;
-}
-
-export function MarkdownOutput({ text }: MarkdownOutputProps) {
-  const rendered = useMemo(() => {
-    const blocks = parseBlocks(text);
-    const elements: React.ReactNode[] = [];
-    let lineKey = 0;
-
-    for (const block of blocks) {
-      if (block.kind === 'code') {
-        elements.push(
-          <pre
-            key={`code-${lineKey++}`}
-            className="my-1 overflow-x-auto rounded p-2 text-gray-100"
-            style={{ backgroundColor: '#2D2D2D' }}
-          >
-            {block.content}
-          </pre>
-        );
-      } else {
-        for (const line of block.lines) {
-          elements.push(renderLine(line, lineKey++));
-        }
-      }
-    }
-
-    return elements;
-  }, [text]);
-
-  return <>{rendered}</>;
+  return (
+    <Markdown remarkPlugins={[remarkGfm]} components={components}>
+      {text}
+    </Markdown>
+  );
 }

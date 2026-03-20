@@ -19,6 +19,7 @@ export interface AgentContext {
   screenFrames?: string[];  // Array of image file paths for visual analysis
   ceoRequests?: CEORequest[];
   pipelineType?: PipelineType;
+  globalPrompt?: string;
 }
 
 export function buildAgentContext(agent: AutoAgent, ctx: AgentContext): string {
@@ -26,6 +27,11 @@ export function buildAgentContext(agent: AutoAgent, ctx: AgentContext): string {
 
   // 1. Agent system prompt
   parts.push(agent.system_prompt);
+
+  // 1.5. Global prompt (applies to all agents)
+  if (ctx.globalPrompt) {
+    parts.push(`\n[Global Instructions]\n${ctx.globalPrompt}`);
+  }
 
   // 2. CEO responses (highest priority — placed right after system prompt)
   if (ctx.ceoRequests && ctx.ceoRequests.length > 0) {

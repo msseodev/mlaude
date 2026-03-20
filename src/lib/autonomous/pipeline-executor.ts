@@ -115,6 +115,8 @@ export class PipelineExecutor {
       screenshotDir,
     });
 
+    const globalPrompt = getSetting('global_prompt') || '';
+
     const previousOutputs = new Map<string, string>();
     const structuredOutputs: StructuredAgentOutput[] = [];
     const allAgentRuns: AutoAgentRun[] = [];
@@ -163,6 +165,7 @@ export class PipelineExecutor {
                 : undefined,
               ceoRequests,
               pipelineType: this.pipelineType,
+              globalPrompt,
             });
 
             return this.runSingleAgent(agent, context, 1);

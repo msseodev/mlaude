@@ -39,6 +39,12 @@ export class WorkerPool {
   }
 
   async start(): Promise<void> {
+    this.emit({
+      type: 'parallel_batch_start',
+      data: { workerCount: this.maxWorkers },
+      timestamp: new Date().toISOString(),
+    });
+
     // Launch N workers
     for (let i = 0; i < this.maxWorkers; i++) {
       this.workers.set(i, { active: false, findingId: null, cycleId: null });
@@ -46,6 +52,12 @@ export class WorkerPool {
     }
     // Wait for all workers to finish (they stop when no more findings)
     await Promise.allSettled([...this.activePromises.values()]);
+
+    this.emit({
+      type: 'parallel_batch_complete',
+      data: { totalCycles: this.cycleCounter },
+      timestamp: new Date().toISOString(),
+    });
   }
 
   stop(): void {

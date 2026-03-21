@@ -935,6 +935,16 @@ class CycleEngineImpl {
       return;
     }
 
+    // Evolution check
+    if (this.currentSessionId && settings.evolution_enabled &&
+        this.cycleNumber > 0 &&
+        this.cycleNumber % settings.evolution_interval === 0) {
+      const claudeBinary = getSetting('claude_binary') || 'claude';
+      await checkAndEvolve(
+        this.currentSessionId, this.cycleNumber, settings, claudeBinary, this.emit.bind(this)
+      );
+    }
+
     // Write SESSION-STATE.md
     await this.updateStateFile();
 

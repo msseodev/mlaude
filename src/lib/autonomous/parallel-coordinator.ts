@@ -1,6 +1,8 @@
+import { spawnSync } from 'child_process';
 import { PipelineExecutor } from './pipeline-executor';
 import type { PipelineResult } from './pipeline-executor';
 import { GitManager } from './git-manager';
+import { getSetting } from '../db';
 import { createAutoCycle, updateAutoCycle, updateAutoFinding } from './db';
 import type { AutoSession, AutoFinding, AutoSSEEvent, PipelineType } from './types';
 import { v4 as uuidv4 } from 'uuid';
@@ -182,7 +184,21 @@ export class ParallelCycleCoordinator {
       // Then merge from main repo
       const mergeResult = await gitManager.mergeWorktreeBranch(task.branchName);
 
-      if (mergeResult.success) {
+      let merged = mergeResult.success;
+      let conflicted = mergeResult.conflicted;
+
+      // If merge conflicted, try to resolve with Claude
+      if (!merged && conflicted) {
+        const resolved = await this.resolveConflictsWithClaude(gitManager, task);
+        if (resolved) {
+          merged = true;
+          conflicted = false;
+        } else {
+          await gitManager.abortMerge();
+        }
+      }
+
+      if (merged) {
         updateAutoFinding(task.finding.id, {
           status: 'resolved',
           resolved_by_cycle_id: task.cycleId,
@@ -193,7 +209,7 @@ export class ParallelCycleCoordinator {
           timestamp: new Date().toISOString(),
         });
       } else {
-        // Merge conflict - mark for serial retry
+        // Failed to merge even after conflict resolution attempt
         const f = task.finding;
         const newRetry = f.retry_count + 1;
         updateAutoFinding(f.id, {
@@ -208,8 +224,8 @@ export class ParallelCycleCoordinator {
         pipelineResult: result,
         branchName: task.branchName,
         worktreePath: task.worktreePath,
-        merged: mergeResult.success,
-        conflicted: mergeResult.conflicted,
+        merged,
+        conflicted,
       });
     }
 
@@ -234,6 +250,43 @@ export class ParallelCycleCoordinator {
     });
 
     return { batchId, results, totalCostUsd, totalDurationMs, abortedByRateLimit };
+  }
+
+  private async resolveConflictsWithClaude(
+    gitManager: GitManager,
+    task: { finding: AutoFinding; branchName: string },
+  ): Promise<boolean> {
+    try {
+      const conflictedFiles = await gitManager.getConflictedFiles();
+      if (conflictedFiles.length === 0) return false;
+
+      const prompt = [
+        'Resolve the following git merge conflicts.',
+        'The conflict markers (<<<<<<< HEAD, =======, >>>>>>>) are in the files listed below.',
+        'Edit each file to resolve the conflicts by keeping the correct combined result.',
+        `Context: merging branch "${task.branchName}" which implements "${task.finding.title}".`,
+        '',
+        'Conflicted files:',
+        ...conflictedFiles.map(f => `- ${f}`),
+        '',
+        'After resolving all conflicts, run: git add -A',
+      ].join('\n');
+
+      const claudeBinary = getSetting('claude_binary') || 'claude';
+      const result = spawnSync(claudeBinary, ['--print', '--dangerously-skip-permissions'], {
+        input: prompt,
+        cwd: this.session.target_project,
+        encoding: 'utf-8',
+        timeout: 120_000,
+      });
+
+      if (result.status !== 0) return false;
+
+      // Complete the merge
+      return await gitManager.completeMerge(`merge: resolve conflicts for ${task.finding.title}`);
+    } catch {
+      return false;
+    }
   }
 
   private async symlinkDependencies(mainDir: string, worktreeDir: string): Promise<void> {

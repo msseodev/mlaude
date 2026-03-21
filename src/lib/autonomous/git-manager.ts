@@ -133,12 +133,37 @@ export class GitManager {
       await this.execGit(['merge', '--no-ff', branchName]);
       return { success: true, conflicted: false };
     } catch {
-      try {
-        await this.execGit(['merge', '--abort']);
-      } catch {
-        // merge --abort can fail if there's nothing to abort
+      // Check if this is actually a conflict (not some other error)
+      const conflictedFiles = await this.getConflictedFiles();
+      if (conflictedFiles.length > 0) {
+        return { success: false, conflicted: true };
       }
-      return { success: false, conflicted: true };
+      // Not a conflict, some other git error — abort
+      try { await this.execGit(['merge', '--abort']); } catch { /* ignore */ }
+      return { success: false, conflicted: false };
+    }
+  }
+
+  async getConflictedFiles(): Promise<string[]> {
+    try {
+      const { stdout } = await this.execGit(['diff', '--name-only', '--diff-filter=U']);
+      return stdout.trim().split('\n').filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  async abortMerge(): Promise<void> {
+    try { await this.execGit(['merge', '--abort']); } catch { /* ignore */ }
+  }
+
+  async completeMerge(message: string): Promise<boolean> {
+    try {
+      await this.execGit(['add', '-A']);
+      await this.execGit(['commit', '-m', message]);
+      return true;
+    } catch {
+      return false;
     }
   }
 

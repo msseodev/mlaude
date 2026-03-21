@@ -33,6 +33,8 @@ export async function PUT(request: NextRequest) {
       'screenshot_dir',
       // v7 settings: global prompt
       'global_prompt',
+      // v8 settings: parallel finding processing
+      'parallel_mode', 'max_parallel_pipelines',
     ];
 
     for (const key of settingKeys) {

@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
@@ -84,6 +85,96 @@ export class GitManager {
       return stdout;
     } catch {
       return '';
+    }
+  }
+
+  async commitAll(message: string): Promise<string | null> {
+    try {
+      await this.execGit(['add', '-A']);
+
+      let hasChanges = false;
+      try {
+        await this.execGit(['diff', '--cached', '--quiet']);
+        hasChanges = false;
+      } catch {
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        await this.execGit(['commit', '-m', message]);
+      }
+
+      return await this.getCurrentSha();
+    } catch {
+      return null;
+    }
+  }
+
+  async createWorktree(branchName: string, worktreePath: string): Promise<boolean> {
+    try {
+      await this.execGit(['worktree', 'add', '-b', branchName, worktreePath]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async removeWorktree(worktreePath: string): Promise<boolean> {
+    try {
+      await this.execGit(['worktree', 'remove', worktreePath, '--force']);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async mergeWorktreeBranch(branchName: string): Promise<{ success: boolean; conflicted: boolean }> {
+    try {
+      await this.execGit(['merge', '--no-ff', branchName]);
+      return { success: true, conflicted: false };
+    } catch {
+      try {
+        await this.execGit(['merge', '--abort']);
+      } catch {
+        // merge --abort can fail if there's nothing to abort
+      }
+      return { success: false, conflicted: true };
+    }
+  }
+
+  async deleteBranch(branchName: string): Promise<void> {
+    try {
+      await this.execGit(['branch', '-D', branchName]);
+    } catch {
+      // Branch may not exist, ignore
+    }
+  }
+
+  async cleanupStaleWorktrees(): Promise<void> {
+    // Remove .mclaude/worktrees/ directory if exists
+    const worktreesDir = path.join(this.resolvedPath, '.mclaude', 'worktrees');
+    try {
+      await fs.rm(worktreesDir, { recursive: true });
+    } catch {
+      // Directory may not exist
+    }
+
+    // Prune stale worktree references
+    try {
+      await this.execGit(['worktree', 'prune']);
+    } catch {
+      // Ignore prune errors
+    }
+
+    // Ensure .mclaude/worktrees is gitignored
+    const gitignorePath = path.join(this.resolvedPath, '.gitignore');
+    try {
+      const content = await fs.readFile(gitignorePath, 'utf-8');
+      if (!content.includes('.mclaude/worktrees')) {
+        await fs.appendFile(gitignorePath, '\n.mclaude/worktrees/\n');
+      }
+    } catch {
+      // No .gitignore or read error, skip
     }
   }
 

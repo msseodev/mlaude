@@ -45,3 +45,6 @@ next-env.d.ts
 
 # mclaude database
 mclaude.db*
+
+# parallel worktrees
+.mclaude/worktrees/

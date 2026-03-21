@@ -159,6 +159,8 @@ export interface AutoSettings {
   evolution_window: number;      // default: 5
   screenshot_dir: string;        // default: '' (auto-detect)
   global_prompt: string;         // default: '' (injected into all agents)
+  parallel_mode: boolean;           // default: false
+  max_parallel_pipelines: number;   // default: 3
 }
 
 // --- SSE Event types ---
@@ -194,6 +196,8 @@ export type AutoSSEEventType =
   | 'planning_dev_review'
   | 'ceo_request_created'
   | 'ceo_request_responded'
+  | 'parallel_batch_start'
+  | 'parallel_batch_complete'
   | 'error';
 
 export interface AutoSSEEvent {

@@ -197,6 +197,9 @@ export function initAutoTables(): void {
   insertSetting.run('screenshot_dir', '');
   // v7 settings: global prompt for all agents
   insertSetting.run('global_prompt', '');
+  // v8 settings: parallel finding processing
+  insertSetting.run('parallel_mode', 'false');
+  insertSetting.run('max_parallel_pipelines', '3');
 
   // Initialize evolution tables
   initEvolutionTables();
@@ -469,6 +472,9 @@ export function getAllAutoSettings(): AutoSettings {
     screenshot_dir: getAutoSetting('screenshot_dir') ?? '',
     // v7 settings: global prompt
     global_prompt: getAutoSetting('global_prompt') ?? '',
+    // v8 settings: parallel finding processing
+    parallel_mode: getAutoSetting('parallel_mode') === 'true',
+    max_parallel_pipelines: Number(getAutoSetting('max_parallel_pipelines') ?? '3'),
   };
 }
 

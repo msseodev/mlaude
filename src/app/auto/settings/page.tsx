@@ -29,6 +29,8 @@ export default function AutoSettingsPage() {
     evolution_window: 5,
     screenshot_dir: '',
     global_prompt: '',
+    parallel_mode: false,
+    max_parallel_pipelines: 3,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -448,6 +450,41 @@ export default function AutoSettingsPage() {
                 </p>
               </div>
             </>
+          )}
+
+          <hr className="border-gray-200" />
+
+          <div className="flex items-center gap-3">
+            <input
+              id="auto-parallel-mode"
+              type="checkbox"
+              checked={form.parallel_mode}
+              onChange={(e) => setForm({ ...form, parallel_mode: e.target.checked })}
+              className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+            />
+            <label htmlFor="auto-parallel-mode" className="text-sm font-medium text-gray-700">
+              Parallel Finding Processing
+            </label>
+          </div>
+
+          {form.parallel_mode && (
+            <div>
+              <label htmlFor="auto-max-parallel-pipelines" className="mb-1 block text-sm font-medium text-gray-700">
+                Max Parallel Pipelines
+              </label>
+              <input
+                id="auto-max-parallel-pipelines"
+                type="number"
+                min={2}
+                max={10}
+                value={form.max_parallel_pipelines}
+                onChange={(e) => setForm({ ...form, max_parallel_pipelines: parseInt(e.target.value, 10) || 3 })}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Process up to N findings simultaneously using git worktrees
+              </p>
+            </div>
           )}
         </div>
 

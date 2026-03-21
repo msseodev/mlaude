@@ -6,6 +6,7 @@ import { caffeinateManager } from '../caffeinate';
 import { getSetting } from '../db';
 import { PipelineExecutor } from './pipeline-executor';
 import type { PipelineResult } from './pipeline-executor';
+import { ParallelCycleCoordinator } from './parallel-coordinator';
 import { Watchdog } from './watchdog';
 import { summarizeAgentOutputs, generateCommitMessage } from './summarizer';
 import { runCommand } from './command-runner';
@@ -13,7 +14,7 @@ import type { CommandResult } from './command-runner';
 import { scoreCycle } from './cycle-scorer';
 import { checkAndEvolve } from './prompt-evolver';
 import { getVariantHistory, updatePromptVariant } from './evolution-db';
-import type { AutoUserPrompt, AutoSettings } from './types';
+import type { AutoUserPrompt, AutoSettings, AutoFinding } from './types';
 import {
   createAutoSession,
   getAutoSession,
@@ -590,6 +591,14 @@ class CycleEngineImpl {
     const actionableFindings = openFindings.filter(f => f.retry_count < f.max_retries);
     // Sort by priority: P0 > P1 > P2 > P3
     actionableFindings.sort((a, b) => a.priority.localeCompare(b.priority));
+
+    // Parallel mode: process multiple findings at once
+    if (settings.parallel_mode && actionableFindings.length >= 2) {
+      await this._processParallelBatch(session, settings, actionableFindings);
+      return;
+    }
+
+    // Sequential mode (existing code continues below)
     const findingToFix = actionableFindings.length > 0 ? actionableFindings[0] : null;
 
     if (findingToFix) {
@@ -892,6 +901,44 @@ class CycleEngineImpl {
     this.updateStateFile();
 
     // Continue
+    this.processNextCycle();
+  }
+
+  private async _processParallelBatch(
+    session: NonNullable<ReturnType<typeof getAutoSession>>,
+    settings: AutoSettings,
+    actionableFindings: AutoFinding[],
+  ): Promise<void> {
+    const batchSize = Math.min(actionableFindings.length, settings.max_parallel_pipelines);
+    const batchFindings = actionableFindings.slice(0, batchSize);
+
+    const coordinator = new ParallelCycleCoordinator(session, this.emit.bind(this));
+    const result = await coordinator.executeBatch(batchFindings, this.cycleNumber);
+
+    // Advance cycle number by batch size
+    this.cycleNumber += result.results.length;
+
+    // Update session totals
+    if (this.currentSessionId) {
+      const currentSession = getAutoSession(this.currentSessionId);
+      if (currentSession) {
+        updateAutoSession(this.currentSessionId, {
+          total_cycles: currentSession.total_cycles + result.results.length,
+          total_cost_usd: currentSession.total_cost_usd + result.totalCostUsd,
+        });
+      }
+    }
+
+    // Handle rate limit
+    if (result.abortedByRateLimit) {
+      this.handleRateLimit({ detected: true, retryAfterMs: 300000, message: 'Rate limited during parallel batch', source: 'text_pattern' });
+      return;
+    }
+
+    // Write SESSION-STATE.md
+    await this.updateStateFile();
+
+    // Continue to next cycle/batch
     this.processNextCycle();
   }
 

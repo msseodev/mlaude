@@ -524,8 +524,8 @@ export default function AutoReportPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {report.recentCycles.map((c) => (
-                  <tr key={c.number}>
+                {report.recentCycles.map((c, idx) => (
+                  <tr key={`${c.number}-${idx}`}>
                     <td className="px-4 py-2 text-sm font-medium text-gray-900">{c.number}</td>
                     <td className="px-4 py-2 text-sm text-gray-600">
                       {phaseLabel[c.phase] ?? c.phase}

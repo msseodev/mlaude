@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
-const TEST_DB_PATH = path.join(process.cwd(), 'test-mclaude.db');
+const TEST_DB_PATH = path.join(process.cwd(), 'test-mlaude.db');
 
 // Direct database helper functions (mirrors src/lib/db.ts logic)
 let db: Database.Database;

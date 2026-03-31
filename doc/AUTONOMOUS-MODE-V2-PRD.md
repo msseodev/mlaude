@@ -210,7 +210,7 @@ QA Engineer → [테스트 통과?]
 ### 4.1 개념
 
 에이전트는 `.md` 파일 형식으로 정의된다. Claude Code의 `.claude/agents/*.md`와 동일한 개념이다.
-mclaude는 이 정의를 DB에 저장하고, UI에서 편집할 수 있게 한다.
+mlaude는 이 정의를 DB에 저장하고, UI에서 편집할 수 있게 한다.
 
 ### 4.2 Agent 정의 형식
 

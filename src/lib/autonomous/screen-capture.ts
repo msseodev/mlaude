@@ -136,17 +136,17 @@ export async function captureAppScreens(
 
   // 1. If videoPath provided, try extractFramesFromVideo
   if (options?.videoPath) {
-    const outputDir = path.join(projectPath, '.mclaude', 'extracted-frames');
+    const outputDir = path.join(projectPath, '.mlaude', 'extracted-frames');
     const result = await extractFramesFromVideo(options.videoPath, outputDir, { maxFrames });
     if (result.frames.length > 0) {
       return result;
     }
   }
 
-  // 2. Look for screenshots in provided dir or .mclaude/screenshots/
+  // 2. Look for screenshots in provided dir or .mlaude/screenshots/
   const screenshotDirs = [
     options?.screenshotDir,
-    path.join(projectPath, '.mclaude', 'screenshots'),
+    path.join(projectPath, '.mlaude', 'screenshots'),
     path.join(projectPath, 'tests', 'e2e', 'screenshots'),
   ].filter((d): d is string => !!d);
 

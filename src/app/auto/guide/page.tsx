@@ -158,7 +158,7 @@ export default function AutoGuidePage() {
             <SectionHeading id="overview" number={1} title="Overview" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
-                mclaude autonomous mode is a system where an <strong className="text-zinc-100">AI agent team</strong> automatically analyzes and improves your project.
+                mlaude autonomous mode is a system where an <strong className="text-zinc-100">AI agent team</strong> automatically analyzes and improves your project.
                 Multiple specialist agents analyze the codebase from their own perspectives, reach consensus through meetings, develop, review, and test.
               </p>
               <p>

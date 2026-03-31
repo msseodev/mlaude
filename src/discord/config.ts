@@ -7,8 +7,8 @@ export interface DiscordBotConfig {
   discordChatChannelId: string | null; // Channel for chat messages
   discordOwnerId: string;
   discordGuildId: string | null; // optional, for instant command registration
-  mclaudeApiKey: string;
-  mclaudeBaseUrl: string;
+  mlaudeApiKey: string;
+  mlaudeBaseUrl: string;
 }
 
 export function loadConfig(): DiscordBotConfig {
@@ -43,7 +43,7 @@ export function loadConfig(): DiscordBotConfig {
     discordChatChannelId: process.env.DISCORD_CHAT_CHANNEL_ID || null,
     discordOwnerId,
     discordGuildId: process.env.DISCORD_GUILD_ID || null,
-    mclaudeApiKey: process.env.MCLAUDE_API_KEY || '',
-    mclaudeBaseUrl: process.env.MCLAUDE_BASE_URL || 'http://localhost:51793',
+    mlaudeApiKey: process.env.MLAUDE_API_KEY || '',
+    mlaudeBaseUrl: process.env.MLAUDE_BASE_URL || 'http://localhost:51793',
   };
 }

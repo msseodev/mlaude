@@ -185,7 +185,7 @@ export default function AutoSettingsPage() {
                 setForm({ ...form, screenshot_dir: e.target.value })
               }
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="Leave empty for auto-detect (.mclaude/screenshots/)"
+              placeholder="Leave empty for auto-detect (.mlaude/screenshots/)"
             />
             <p className="mt-1 text-xs text-gray-500">
               Leave empty for auto-detection

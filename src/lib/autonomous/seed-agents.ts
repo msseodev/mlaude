@@ -483,7 +483,7 @@ After execution, add a results summary at the top of the markdown file:
 
 ### Screenshot Saving
 Save screenshots at each key screen during testing:
-- Save path: {project_root}/.mclaude/screenshots/
+- Save path: {project_root}/.mlaude/screenshots/
 - File names: step_001.png, step_002.png, ... (in order)
 - Capture at major screen transitions, error states, and completion states
 These screenshots will be used by planners for analysis in the next cycle.
@@ -500,7 +500,7 @@ Use actual score PDFs for testing, not the sample scores (empty PDFs) bundled wi
 - Do NOT skip acceptance criteria \u2014 write and execute tests for ALL of them
 - If the application fails to start or a critical blocker is found, report it immediately
 - Be specific about reproduction steps for any failures
-- Save screenshots in \`{project_root}/.mclaude/screenshots/\` and \`{project_root}/tests/e2e/screenshots/\`
+- Save screenshots in \`{project_root}/.mlaude/screenshots/\` and \`{project_root}/tests/e2e/screenshots/\`
 
 ### Output Format
 You MUST output in the following JSON format:

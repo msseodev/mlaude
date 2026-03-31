@@ -1,28 +1,28 @@
 import { ButtonInteraction } from 'discord.js';
-import { MclaudeApiClient } from './api-client';
+import { MlaudeApiClient } from './api-client';
 
-export async function handleButton(interaction: ButtonInteraction, apiClient: MclaudeApiClient): Promise<void> {
+export async function handleButton(interaction: ButtonInteraction, apiClient: MlaudeApiClient): Promise<void> {
   await interaction.deferReply({ flags: 64 }); // ephemeral
 
   try {
     switch (interaction.customId) {
-      case 'mclaude:pause':
+      case 'mlaude:pause':
         await apiClient.pauseRun();
         await interaction.editReply('Paused.');
         break;
-      case 'mclaude:stop':
+      case 'mlaude:stop':
         await apiClient.stopRun();
         await interaction.editReply('Stopped.');
         break;
-      case 'mclaude:run-again':
+      case 'mlaude:run-again':
         await apiClient.startRun();
         await interaction.editReply('Queue started.');
         break;
-      case 'mclaude:auto-pause':
+      case 'mlaude:auto-pause':
         await apiClient.pauseAuto();
         await interaction.editReply('Auto mode paused.');
         break;
-      case 'mclaude:auto-stop':
+      case 'mlaude:auto-stop':
         await apiClient.stopAuto();
         await interaction.editReply('Auto mode stopped.');
         break;

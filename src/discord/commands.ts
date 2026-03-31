@@ -6,7 +6,7 @@ import {
   ChatInputCommandInteraction,
   EmbedBuilder,
 } from 'discord.js';
-import { MclaudeApiClient } from './api-client';
+import { MlaudeApiClient } from './api-client';
 import { DiscordBotConfig } from './config';
 
 const commands = [
@@ -82,7 +82,7 @@ export async function registerCommands(
 
 export async function handleCommand(
   interaction: ChatInputCommandInteraction,
-  apiClient: MclaudeApiClient,
+  apiClient: MlaudeApiClient,
 ) {
   await interaction.deferReply();
 
@@ -95,7 +95,7 @@ export async function handleCommand(
         ]);
 
         const embed = new EmbedBuilder()
-          .setTitle('mclaude Status')
+          .setTitle('mlaude Status')
           .setColor(0x6366f1)
           .setTimestamp();
 

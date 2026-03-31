@@ -110,9 +110,9 @@ describe('captureAppScreens', () => {
     expect(result.frames).toHaveLength(0);
   });
 
-  it('finds screenshots in .mclaude/screenshots/', async () => {
+  it('finds screenshots in .mlaude/screenshots/', async () => {
     const projectDir = path.join(tmpDir, 'project');
-    const screenshotDir = path.join(projectDir, '.mclaude', 'screenshots');
+    const screenshotDir = path.join(projectDir, '.mlaude', 'screenshots');
     await fs.mkdir(screenshotDir, { recursive: true });
 
     await fs.writeFile(path.join(screenshotDir, 'step_001.png'), 'fake-png');
@@ -154,7 +154,7 @@ describe('captureAppScreens', () => {
 
   it('respects maxFrames option', async () => {
     const projectDir = path.join(tmpDir, 'project');
-    const screenshotDir = path.join(projectDir, '.mclaude', 'screenshots');
+    const screenshotDir = path.join(projectDir, '.mlaude', 'screenshots');
     await fs.mkdir(screenshotDir, { recursive: true });
 
     for (let i = 1; i <= 10; i++) {
@@ -169,21 +169,21 @@ describe('captureAppScreens', () => {
     expect(result.frames).toHaveLength(5);
   });
 
-  it('prefers .mclaude/screenshots/ over tests/e2e/screenshots/', async () => {
+  it('prefers .mlaude/screenshots/ over tests/e2e/screenshots/', async () => {
     const projectDir = path.join(tmpDir, 'project');
-    const mclaudeDir = path.join(projectDir, '.mclaude', 'screenshots');
+    const mlaudeDir = path.join(projectDir, '.mlaude', 'screenshots');
     const e2eDir = path.join(projectDir, 'tests', 'e2e', 'screenshots');
-    await fs.mkdir(mclaudeDir, { recursive: true });
+    await fs.mkdir(mlaudeDir, { recursive: true });
     await fs.mkdir(e2eDir, { recursive: true });
 
-    await fs.writeFile(path.join(mclaudeDir, 'mclaude_screen.png'), 'fake');
+    await fs.writeFile(path.join(mlaudeDir, 'mlaude_screen.png'), 'fake');
     await fs.writeFile(path.join(e2eDir, 'e2e_screen.png'), 'fake');
 
     const result = await captureAppScreens(projectDir);
 
     expect(result.source).toBe('screenshots');
-    // Should use the .mclaude dir (first priority)
-    expect(result.frames[0]).toContain('.mclaude');
+    // Should use the .mlaude dir (first priority)
+    expect(result.frames[0]).toContain('.mlaude');
   });
 });
 

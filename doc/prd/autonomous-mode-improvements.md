@@ -9,7 +9,7 @@
 
 ## 1. Background and Problem Statement
 
-mclaude's autonomous mode operates a continuous improvement loop: it discovers issues in a target project, plans fixes, implements them, reviews the changes, and runs QA -- all without human intervention. Each iteration of this loop is called a **cycle**, and a cycle executes a **pipeline** of specialized AI agents.
+mlaude's autonomous mode operates a continuous improvement loop: it discovers issues in a target project, plans fixes, implements them, reviews the changes, and runs QA -- all without human intervention. Each iteration of this loop is called a **cycle**, and a cycle executes a **pipeline** of specialized AI agents.
 
 Before this release, the autonomous mode suffered from several efficiency and correctness problems:
 
@@ -144,7 +144,7 @@ Discovery pipelines retain full mobile-mcp E2E testing with screenshot capture a
 
 ### 3.5 Discord CEO Notifications
 
-**Problem**: CEO requests were only visible in the mclaude web UI. The human operator had to actively check the dashboard.
+**Problem**: CEO requests were only visible in the mlaude web UI. The human operator had to actively check the dashboard.
 
 **Solution**: Discord bot integration for CEO request notifications and responses.
 
@@ -156,7 +156,7 @@ Discovery pipelines retain full mobile-mcp E2E testing with screenshot capture a
 | Embed builder | `embeds.ts` | Builds Discord rich embeds with request details (title, description, type, blocking status, requesting agent) |
 | Thread management | `notifications.ts` | Auto-creates a Discord thread for each CEO request |
 | Reply parser | `bot.ts` (`parseCEOStatus`) | Parses thread replies as approved/rejected/answered |
-| API integration | `bot.ts` (`setupCEOReplyHandler`) | Forwards parsed responses to mclaude API |
+| API integration | `bot.ts` (`setupCEOReplyHandler`) | Forwards parsed responses to mlaude API |
 
 **Reply parsing** (bilingual Korean/English):
 
@@ -268,7 +268,7 @@ Applied to all 14 dialogs across the application.
 
 - Filter options: status (6 values), priority (P0-P3), category (7 types)
 - Sort options: priority, status, category, title, retries, created date (ascending/descending)
-- Preferences persisted to `localStorage` under key `mclaude_findings_prefs`
+- Preferences persisted to `localStorage` under key `mlaude_findings_prefs`
 - Restored on page load; survives browser refresh and navigation
 
 ---
@@ -314,7 +314,7 @@ Product Designer (pipeline_order: 0.0) is disabled by default, superseded by the
 ### 4.3 Discord Integration Architecture
 
 ```
-mclaude server (Next.js)
+mlaude server (Next.js)
   |
   |  SSE stream (/api/auto/stream)
   v

@@ -11,11 +11,11 @@ describe('auth', () => {
   const TEST_API_KEY = 'test-secret-key-12345';
 
   beforeEach(() => {
-    process.env.MCLAUDE_API_KEY = TEST_API_KEY;
+    process.env.MLAUDE_API_KEY = TEST_API_KEY;
   });
 
   afterEach(() => {
-    delete process.env.MCLAUDE_API_KEY;
+    delete process.env.MLAUDE_API_KEY;
   });
 
   describe('createSessionToken', () => {
@@ -58,24 +58,24 @@ describe('auth', () => {
 
   describe('isAuthEnabled', () => {
     it('should return false when env var not set', () => {
-      delete process.env.MCLAUDE_API_KEY;
+      delete process.env.MLAUDE_API_KEY;
       expect(isAuthEnabled()).toBe(false);
     });
 
     it('should return true when env var is set', () => {
-      process.env.MCLAUDE_API_KEY = TEST_API_KEY;
+      process.env.MLAUDE_API_KEY = TEST_API_KEY;
       expect(isAuthEnabled()).toBe(true);
     });
 
     it('should return false when env var is empty string', () => {
-      process.env.MCLAUDE_API_KEY = '';
+      process.env.MLAUDE_API_KEY = '';
       expect(isAuthEnabled()).toBe(false);
     });
   });
 
   describe('getAuthDecision', () => {
     it('should return "pass" when auth disabled', async () => {
-      delete process.env.MCLAUDE_API_KEY;
+      delete process.env.MLAUDE_API_KEY;
       const result = await getAuthDecision({
         pathname: '/api/prompts',
         bearerToken: null,

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mclaude-v1';
+const CACHE_NAME = 'mlaude-v1';
 
 // install: no precaching (auth-protected pages must not be cached)
 self.addEventListener('install', () => {

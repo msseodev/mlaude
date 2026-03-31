@@ -176,8 +176,8 @@ export class GitManager {
   }
 
   async cleanupStaleWorktrees(): Promise<void> {
-    // Remove .mclaude/worktrees/ directory if exists
-    const worktreesDir = path.join(this.resolvedPath, '.mclaude', 'worktrees');
+    // Remove .mlaude/worktrees/ directory if exists
+    const worktreesDir = path.join(this.resolvedPath, '.mlaude', 'worktrees');
     try {
       await fs.rm(worktreesDir, { recursive: true });
     } catch {
@@ -191,12 +191,12 @@ export class GitManager {
       // Ignore prune errors
     }
 
-    // Ensure .mclaude/worktrees is gitignored
+    // Ensure .mlaude/worktrees is gitignored
     const gitignorePath = path.join(this.resolvedPath, '.gitignore');
     try {
       const content = await fs.readFile(gitignorePath, 'utf-8');
-      if (!content.includes('.mclaude/worktrees')) {
-        await fs.appendFile(gitignorePath, '\n.mclaude/worktrees/\n');
+      if (!content.includes('.mlaude/worktrees')) {
+        await fs.appendFile(gitignorePath, '\n.mlaude/worktrees/\n');
       }
     } catch {
       // No .gitignore or read error, skip

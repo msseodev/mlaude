@@ -41,7 +41,7 @@ describe('generateCommitMessage', () => {
     mockExecFileSync.mockReturnValue('/usr/local/bin/claude');
   });
 
-  it('does not include [mclaude-auto] in the prompt', async () => {
+  it('does not include [mlaude-auto] in the prompt', async () => {
     const proc = createMockProcess('feat: add user authentication');
     mockSpawn.mockReturnValue(proc as ReturnType<typeof spawn>);
 
@@ -53,7 +53,7 @@ describe('generateCommitMessage', () => {
     const promptArgIndex = args.indexOf('-p');
     const prompt = args[promptArgIndex + 1];
 
-    expect(prompt).not.toContain('[mclaude-auto]');
+    expect(prompt).not.toContain('[mlaude-auto]');
     expect(prompt).not.toContain('cycle');
   });
 

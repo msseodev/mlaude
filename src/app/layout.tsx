@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "mclaude",
+  title: "mlaude",
   description: "Claude Code automation with queue management",
   manifest: "/manifest.json",
   appleWebApp: {

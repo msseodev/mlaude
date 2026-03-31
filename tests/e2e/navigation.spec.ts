@@ -34,9 +34,9 @@ test.describe('Navigation', () => {
     await expect(page.locator('h1')).toHaveText('Settings');
   });
 
-  test('should show mclaude branding in sidebar', async ({ page }) => {
+  test('should show mlaude branding in sidebar', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('text=mclaude').first()).toBeVisible();
+    await expect(page.locator('text=mlaude').first()).toBeVisible();
   });
 
   test('should highlight active nav item', async ({ page }) => {

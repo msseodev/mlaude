@@ -6,11 +6,11 @@ describe('middleware auth decision', () => {
   const TEST_API_KEY = 'middleware-test-key-99999';
 
   beforeEach(() => {
-    process.env.MCLAUDE_API_KEY = TEST_API_KEY;
+    process.env.MLAUDE_API_KEY = TEST_API_KEY;
   });
 
   afterEach(() => {
-    delete process.env.MCLAUDE_API_KEY;
+    delete process.env.MLAUDE_API_KEY;
   });
 
   function makeInput(overrides: Partial<AuthDecisionInput> = {}): AuthDecisionInput {
@@ -24,13 +24,13 @@ describe('middleware auth decision', () => {
 
   describe('auth disabled', () => {
     it('should return "pass" when auth is disabled', async () => {
-      delete process.env.MCLAUDE_API_KEY;
+      delete process.env.MLAUDE_API_KEY;
       const result = await getAuthDecision(makeInput({ pathname: '/api/prompts' }));
       expect(result).toBe('pass');
     });
 
     it('should return "pass" for page routes when auth is disabled', async () => {
-      delete process.env.MCLAUDE_API_KEY;
+      delete process.env.MLAUDE_API_KEY;
       const result = await getAuthDecision(makeInput({ pathname: '/settings' }));
       expect(result).toBe('pass');
     });

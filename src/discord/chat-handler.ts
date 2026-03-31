@@ -1,14 +1,14 @@
 import { Client, Message, ThreadChannel } from 'discord.js';
 import { DiscordBotConfig } from './config';
-import { MclaudeApiClient } from './api-client';
+import { MlaudeApiClient } from './api-client';
 
-// Map Discord thread ID -> mclaude chat session ID
+// Map Discord thread ID -> mlaude chat session ID
 const threadSessionMap = new Map<string, string>();
 
 // Track active SSE connections per thread
 const activeStreams = new Map<string, AbortController>();
 
-export function setupChatHandler(client: Client, config: DiscordBotConfig, apiClient: MclaudeApiClient) {
+export function setupChatHandler(client: Client, config: DiscordBotConfig, apiClient: MlaudeApiClient) {
   if (!config.discordChatChannelId) {
     console.log('DISCORD_CHAT_CHANNEL_ID not set, chat handler disabled');
     return;
@@ -50,7 +50,7 @@ export function setupChatHandler(client: Client, config: DiscordBotConfig, apiCl
   console.log(`Chat handler enabled for channel ${config.discordChatChannelId}`);
 }
 
-async function handleNewConversation(message: Message, apiClient: MclaudeApiClient) {
+async function handleNewConversation(message: Message, apiClient: MlaudeApiClient) {
   // Create a thread from the message
   const thread = await message.startThread({
     name: message.content.slice(0, 50) + (message.content.length > 50 ? '...' : ''),
@@ -75,7 +75,7 @@ async function handleNewConversation(message: Message, apiClient: MclaudeApiClie
 async function handleThreadMessage(
   message: Message,
   thread: ThreadChannel,
-  apiClient: MclaudeApiClient,
+  apiClient: MlaudeApiClient,
 ) {
   let sessionId = threadSessionMap.get(thread.id);
 
@@ -99,7 +99,7 @@ async function handleThreadMessage(
 async function streamResponseToThread(
   thread: ThreadChannel,
   targetSessionId: string,
-  apiClient: MclaudeApiClient,
+  apiClient: MlaudeApiClient,
 ) {
   // Cancel any existing stream for this thread
   const existingController = activeStreams.get(thread.id);

@@ -1,5 +1,5 @@
-const SESSION_HMAC_PAYLOAD = 'mclaude-session-v1';
-const COOKIE_NAME = 'mclaude_session';
+const SESSION_HMAC_PAYLOAD = 'mlaude-session-v1';
+const COOKIE_NAME = 'mlaude_session';
 const COOKIE_MAX_AGE = 604800; // 7 days
 
 export type AuthDecision = 'pass' | 'deny-api' | 'deny-page';
@@ -11,7 +11,7 @@ export interface AuthDecisionInput {
 }
 
 function getApiKey(): string {
-  return process.env.MCLAUDE_API_KEY ?? '';
+  return process.env.MLAUDE_API_KEY ?? '';
 }
 
 export function isAuthEnabled(): boolean {

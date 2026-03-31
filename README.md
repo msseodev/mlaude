@@ -1,4 +1,4 @@
-# mclaude
+# mlaude
 
 A Claude Code automation tool that queues multiple prompts for sequential execution with automatic rate limit handling and retry with exponential backoff.
 

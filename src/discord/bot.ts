@@ -1,6 +1,6 @@
 import { Client, GatewayIntentBits, Message } from 'discord.js';
 import { loadConfig } from './config';
-import { MclaudeApiClient } from './api-client';
+import { MlaudeApiClient } from './api-client';
 import { registerCommands, handleCommand } from './commands';
 import { handleButton } from './buttons';
 import { startSSEListeners, stopSSEListeners, ceoRequestThreadMap } from './notifications';
@@ -18,7 +18,7 @@ function parseCEOStatus(text: string): { status: string; response: string } {
   return { status: 'answered', response: text };
 }
 
-function setupCEOReplyHandler(client: Client, config: ReturnType<typeof loadConfig>, apiClient: MclaudeApiClient) {
+function setupCEOReplyHandler(client: Client, config: ReturnType<typeof loadConfig>, apiClient: MlaudeApiClient) {
   client.on('messageCreate', async (message: Message) => {
     if (message.author.bot) return;
     if (message.author.id !== config.discordOwnerId) return;
@@ -43,7 +43,7 @@ function setupCEOReplyHandler(client: Client, config: ReturnType<typeof loadConf
 
 async function main() {
   const config = loadConfig();
-  const apiClient = new MclaudeApiClient(config.mclaudeBaseUrl, config.mclaudeApiKey);
+  const apiClient = new MlaudeApiClient(config.mlaudeBaseUrl, config.mlaudeApiKey);
 
   const client = new Client({
     intents: [

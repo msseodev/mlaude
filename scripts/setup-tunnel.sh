@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== mclaude Cloudflare Tunnel Setup ==="
+echo "=== mlaude Cloudflare Tunnel Setup ==="
 echo ""
 
 # Check if cloudflared is installed
@@ -24,8 +24,8 @@ echo "cloudflared found: $(cloudflared --version)"
 echo ""
 
 # Prompt for tunnel name
-read -rp "Enter tunnel name [mclaude]: " TUNNEL_NAME
-TUNNEL_NAME="${TUNNEL_NAME:-mclaude}"
+read -rp "Enter tunnel name [mlaude]: " TUNNEL_NAME
+TUNNEL_NAME="${TUNNEL_NAME:-mlaude}"
 
 # Create the tunnel
 echo ""
@@ -58,16 +58,16 @@ echo ""
 echo "=== Next Steps ==="
 echo ""
 echo "1. Set up DNS routing (replace YOUR_DOMAIN with your domain):"
-echo "   cloudflared tunnel route dns ${TUNNEL_NAME} mclaude.YOUR_DOMAIN"
+echo "   cloudflared tunnel route dns ${TUNNEL_NAME} mlaude.YOUR_DOMAIN"
 echo ""
 echo "2. Start the tunnel:"
 echo "   cloudflared tunnel run ${TUNNEL_NAME}"
 echo ""
-echo "3. Set the MCLAUDE_API_KEY environment variable to enable authentication"
-echo "   when exposing mclaude externally:"
-echo "   export MCLAUDE_API_KEY=\"your-secret-key\""
+echo "3. Set the MLAUDE_API_KEY environment variable to enable authentication"
+echo "   when exposing mlaude externally:"
+echo "   export MLAUDE_API_KEY=\"your-secret-key\""
 echo ""
 echo "   Or add it to your .env file:"
-echo "   MCLAUDE_API_KEY=your-secret-key"
+echo "   MLAUDE_API_KEY=your-secret-key"
 echo ""
 echo "=== Done ==="

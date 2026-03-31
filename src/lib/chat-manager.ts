@@ -295,7 +295,7 @@ class ChatManagerImpl {
 }
 
 // HMR-safe singleton
-const GLOBAL_KEY = '__mclaude_chat_manager__';
+const GLOBAL_KEY = '__mlaude_chat_manager__';
 
 function getChatManager(): ChatManagerImpl {
   const g = globalThis as unknown as Record<string, ChatManagerImpl>;

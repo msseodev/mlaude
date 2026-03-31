@@ -3,9 +3,9 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import type { Prompt, RunSession, Execution, Settings, Plan, PlanItem, PlanItemRun, PlanWithItems, ChatSession, ChatMessage } from './types';
 
-const DB_PATH = path.join(process.cwd(), 'mclaude.db');
+const DB_PATH = path.join(process.cwd(), 'mlaude.db');
 
-const globalForDb = globalThis as unknown as { __mclaudeDb: Database.Database };
+const globalForDb = globalThis as unknown as { __mlaudeDb: Database.Database };
 
 function initDb(): Database.Database {
   const db = new Database(DB_PATH);
@@ -130,10 +130,10 @@ function initDb(): Database.Database {
 }
 
 export function getDb(): Database.Database {
-  if (!globalForDb.__mclaudeDb) {
-    globalForDb.__mclaudeDb = initDb();
+  if (!globalForDb.__mlaudeDb) {
+    globalForDb.__mlaudeDb = initDb();
   }
-  return globalForDb.__mclaudeDb;
+  return globalForDb.__mlaudeDb;
 }
 
 // --- Prompt CRUD ---

@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
-const TEST_DB_PATH = path.join(process.cwd(), 'test-chat-mclaude.db');
+const TEST_DB_PATH = path.join(process.cwd(), 'test-chat-mlaude.db');
 
 let db: Database.Database;
 

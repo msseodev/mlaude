@@ -9,7 +9,7 @@ import { useChatStatus } from '@/hooks/useChatStatus';
 
 type Mode = 'manual' | 'auto' | 'chat';
 
-const MODE_KEY = 'mclaude-mode';
+const MODE_KEY = 'mlaude-mode';
 
 const manualNavItems = [
   { href: '/', label: 'Dashboard', icon: HomeIcon },
@@ -131,7 +131,7 @@ export function Sidebar({ open, onClose, authEnabled, onLogout }: SidebarProps) 
         }`}
       >
         <div className="flex h-16 items-center gap-3 px-6">
-          <div className="text-xl font-bold text-white">mclaude</div>
+          <div className="text-xl font-bold text-white">mlaude</div>
           <div className="flex items-center gap-1.5">
             <span
               className={`inline-block h-2.5 w-2.5 rounded-full ${statusColors[sessionStatus] ?? 'bg-gray-400'}`}

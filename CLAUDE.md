@@ -1,4 +1,4 @@
-# mclaude - Claude Code Automation Tool
+# mlaude - Claude Code Automation Tool
 
 ## Project Overview
 

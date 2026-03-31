@@ -76,7 +76,7 @@ const SORT_OPTIONS: { label: string; value: string }[] = [
   { label: 'Created', value: 'created' },
 ];
 
-const STORAGE_KEY = 'mclaude_findings_prefs';
+const STORAGE_KEY = 'mlaude_findings_prefs';
 
 function loadPrefs(): { status: string; priority: string; category: string; sortBy: string; sortDir: 'asc' | 'desc' } {
   try {

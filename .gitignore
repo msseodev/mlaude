@@ -14,7 +14,7 @@
 /coverage
 /test-results/
 /playwright-report/
-test-mclaude.db*
+test-mlaude.db*
 
 # next.js
 /.next/
@@ -43,8 +43,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# mclaude database
-mclaude.db*
+# mlaude database
+mlaude.db*
 
 # parallel worktrees
-.mclaude/worktrees/
+.mlaude/worktrees/

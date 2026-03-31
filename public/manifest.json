@@ -1,6 +1,6 @@
 {
-  "name": "mclaude",
-  "short_name": "mclaude",
+  "name": "mlaude",
+  "short_name": "mlaude",
   "description": "Claude Code automation with queue management",
   "start_url": "/",
   "display": "standalone",

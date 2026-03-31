@@ -11,12 +11,12 @@ describe('buildCycleCommitMessage', () => {
     expect(msg).toContain('Finding: P0 - Fix login button');
   });
 
-  it('does not include [mclaude-auto] prefix', () => {
+  it('does not include [mlaude-auto] prefix', () => {
     const finding = { priority: 'P0', title: 'Fix login button' };
 
     const msg = buildCycleCommitMessage(3, finding);
 
-    expect(msg).not.toContain('[mclaude-auto]');
+    expect(msg).not.toContain('[mlaude-auto]');
   });
 
   it('uses chore type when no finding is provided', () => {
@@ -24,7 +24,7 @@ describe('buildCycleCommitMessage', () => {
 
     expect(msg).toContain('chore: autonomous cycle 5 changes');
     expect(msg).not.toContain('Finding:');
-    expect(msg).not.toContain('[mclaude-auto]');
+    expect(msg).not.toContain('[mlaude-auto]');
   });
 
   it('does not include Agents or Cost metadata lines', () => {

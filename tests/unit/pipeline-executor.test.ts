@@ -356,16 +356,16 @@ describe('filterAgentsByPipelineType', () => {
     expect(names).not.toContain('test_engineer');
   });
 
-  it('fix pipeline returns only developer, reviewer, qa_engineer', () => {
+  it('fix pipeline returns only developer and reviewer (QA skipped)', () => {
     const result = filterAgentsByPipelineType(allAgents, 'fix');
     const names = result.map(a => a.name);
-    expect(names).toEqual(['developer', 'reviewer', 'qa_engineer']);
+    expect(names).toEqual(['developer', 'reviewer']);
   });
 
-  it('test_fix pipeline returns only test_engineer, qa_engineer', () => {
+  it('test_fix pipeline returns only test_engineer (QA skipped)', () => {
     const result = filterAgentsByPipelineType(allAgents, 'test_fix');
     const names = result.map(a => a.name);
-    expect(names).toEqual(['test_engineer', 'qa_engineer']);
+    expect(names).toEqual(['test_engineer']);
   });
 
   it('default (undefined) behaves like discovery', () => {

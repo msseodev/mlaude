@@ -64,22 +64,23 @@ function makeAgent(name: string): AutoAgent {
 }
 
 describe('PLANNER_AGENT_NAMES', () => {
-  it('contains all 5 planner agent names', () => {
+  it('contains all 6 planner agent names', () => {
     expect(PLANNER_AGENT_NAMES.has('product_designer')).toBe(true);
     expect(PLANNER_AGENT_NAMES.has('ux_planner')).toBe(true);
     expect(PLANNER_AGENT_NAMES.has('tech_planner')).toBe(true);
     expect(PLANNER_AGENT_NAMES.has('biz_planner')).toBe(true);
+    expect(PLANNER_AGENT_NAMES.has('music_domain_planner')).toBe(true);
     expect(PLANNER_AGENT_NAMES.has('planning_moderator')).toBe(true);
   });
 
-  it('has exactly 5 members', () => {
-    expect(PLANNER_AGENT_NAMES.size).toBe(5);
+  it('has exactly 6 members', () => {
+    expect(PLANNER_AGENT_NAMES.size).toBe(6);
   });
 });
 
 describe('isPlannerAgent', () => {
-  it('returns true for all 5 planner agents', () => {
-    const plannerNames = ['product_designer', 'ux_planner', 'tech_planner', 'biz_planner', 'planning_moderator'];
+  it('returns true for all 6 planner agents', () => {
+    const plannerNames = ['product_designer', 'ux_planner', 'tech_planner', 'biz_planner', 'music_domain_planner', 'planning_moderator'];
     for (const name of plannerNames) {
       expect(isPlannerAgent(makeAgent(name))).toBe(true);
     }

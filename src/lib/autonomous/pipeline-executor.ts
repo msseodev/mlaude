@@ -67,7 +67,7 @@ interface FeedbackLoopResult {
 }
 
 // Planning agents — receive screen frames and initial_prompt
-export const PLANNER_AGENT_NAMES = new Set(['product_designer', 'ux_planner', 'tech_planner', 'biz_planner', 'planning_moderator']);
+export const PLANNER_AGENT_NAMES = new Set(['product_designer', 'ux_planner', 'tech_planner', 'biz_planner', 'music_domain_planner', 'planning_moderator']);
 export function isPlannerAgent(agent: AutoAgent): boolean {
   return PLANNER_AGENT_NAMES.has(agent.name);
 }
@@ -1012,15 +1012,18 @@ export function filterAgentsByPipelineType(
   const effectiveType = pipelineType ?? 'discovery';
   switch (effectiveType) {
     case 'fix': {
-      const fixNames = new Set(['developer', 'reviewer', 'qa_engineer']);
+      // QA skipped for fix cycles — build_command/test_command in cycle-engine handles verification
+      const fixNames = new Set(['developer', 'reviewer']);
       return enabledAgents.filter(a => fixNames.has(a.name));
     }
     case 'test_fix': {
-      const testFixNames = new Set(['test_engineer', 'qa_engineer']);
+      // QA skipped for test_fix cycles — Developer self-tests + evaluation commands handle verification
+      const testFixNames = new Set(['test_engineer']);
       return enabledAgents.filter(a => testFixNames.has(a.name));
     }
     case 'discovery':
     default:
+      // QA runs only in discovery for full UI testing
       return enabledAgents.filter(a => a.name !== 'test_engineer');
   }
 }

@@ -366,6 +366,8 @@ export function getAllSettings(): Settings {
     working_directory: getSetting('working_directory') ?? process.cwd(),
     claude_binary: getSetting('claude_binary') ?? 'claude',
     global_prompt: getSetting('global_prompt') ?? '',
+    claude_session_key: getSetting('claude_session_key') ?? '',
+    claude_org_id: getSetting('claude_org_id') ?? '',
   };
 }
 

@@ -622,9 +622,6 @@ export function getAllAutoSettings(): AutoSettings {
     memory_enabled: getAutoSetting('memory_enabled') !== 'false',
     knowledge_extraction_interval: Number(getAutoSetting('knowledge_extraction_interval') ?? '5'),
     max_knowledge_context_chars: Number(getAutoSetting('max_knowledge_context_chars') ?? '3500'),
-    // v11 settings: usage monitoring
-    claude_session_key: getAutoSetting('claude_session_key') ?? '',
-    claude_org_id: getAutoSetting('claude_org_id') ?? '',
   };
 }
 

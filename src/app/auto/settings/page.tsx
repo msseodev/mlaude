@@ -34,8 +34,6 @@ export default function AutoSettingsPage() {
     memory_enabled: true,
     knowledge_extraction_interval: 5,
     max_knowledge_context_chars: 3500,
-    claude_session_key: '',
-    claude_org_id: '',
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -492,42 +490,6 @@ export default function AutoSettingsPage() {
             </div>
           )}
 
-          <hr className="border-gray-200" />
-
-          <h3 className="text-sm font-semibold text-gray-900">Usage Monitoring</h3>
-          <p className="text-xs text-gray-500">
-            Optional: Provide Claude session key to enable pre-flight usage checks before each cycle.
-            Prevents wasted cycles when usage is near the limit.
-          </p>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Claude Session Key
-            </label>
-            <input
-              type="password"
-              value={form.claude_session_key}
-              onChange={(e) => setForm({ ...form, claude_session_key: e.target.value })}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="sk-ant-sid02-..."
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              From browser cookies (sessionKey value on claude.ai)
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Organization ID
-            </label>
-            <input
-              type="text"
-              value={form.claude_org_id}
-              onChange={(e) => setForm({ ...form, claude_org_id: e.target.value })}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            />
-          </div>
         </div>
 
         {saveError && (

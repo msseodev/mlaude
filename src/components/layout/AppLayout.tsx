@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './Sidebar';
+import { UsageBar } from './UsageBar';
 import { ToastProvider } from '@/components/ui/Toast';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -56,6 +57,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 overflow-y-auto">
             {children}
           </main>
+          <UsageBar />
         </div>
       </div>
     </ToastProvider>

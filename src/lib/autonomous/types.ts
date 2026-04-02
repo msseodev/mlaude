@@ -166,8 +166,6 @@ export interface AutoSettings {
   memory_enabled: boolean;              // default: true
   knowledge_extraction_interval: number; // default: 5 (cycles)
   max_knowledge_context_chars: number;   // default: 3500
-  claude_session_key: string;           // default: ''
-  claude_org_id: string;                // default: ''
 }
 
 // --- SSE Event types ---

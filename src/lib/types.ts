@@ -128,6 +128,8 @@ export interface Settings {
   working_directory: string;
   claude_binary: string;
   global_prompt: string;
+  claude_session_key: string;
+  claude_org_id: string;
 }
 
 export interface Plan {

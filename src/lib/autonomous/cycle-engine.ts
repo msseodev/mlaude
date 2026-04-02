@@ -399,10 +399,11 @@ class CycleEngineImpl {
     if (!session) return;
 
     // Pre-flight usage check (skip if session key not configured)
-    const preFlightSettings = getAllAutoSettings();
-    if (preFlightSettings.claude_session_key && preFlightSettings.claude_org_id) {
+    const sessionKey = getSetting('claude_session_key');
+    const orgId = getSetting('claude_org_id');
+    if (sessionKey && orgId) {
       try {
-        const usage = await checkUsage(preFlightSettings.claude_session_key, preFlightSettings.claude_org_id);
+        const usage = await checkUsage(sessionKey, orgId);
         if (usage.utilization >= 90) {
           const waitMs = usage.resetsAt ? getWaitTimeMs(usage.resetsAt) : BACKOFF_MAX_MS;
           this.handleRateLimit({

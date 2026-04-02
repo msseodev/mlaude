@@ -56,6 +56,12 @@ export async function PUT(request: NextRequest) {
     if (global_prompt !== undefined) {
       setSetting('global_prompt', global_prompt);
     }
+    if (body.claude_session_key !== undefined) {
+      setSetting('claude_session_key', body.claude_session_key);
+    }
+    if (body.claude_org_id !== undefined) {
+      setSetting('claude_org_id', body.claude_org_id);
+    }
 
     const settings = getAllSettings();
     return NextResponse.json(settings);

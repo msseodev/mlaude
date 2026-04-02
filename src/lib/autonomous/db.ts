@@ -152,6 +152,15 @@ export function initAutoTables(): void {
     );
   `);
 
+  // Performance indexes
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_auto_findings_status_priority ON auto_findings(status, priority);
+    CREATE INDEX IF NOT EXISTS idx_auto_findings_session_id ON auto_findings(session_id);
+    CREATE INDEX IF NOT EXISTS idx_auto_cycles_session_id ON auto_cycles(session_id, cycle_number);
+    CREATE INDEX IF NOT EXISTS idx_auto_agent_runs_cycle_id ON auto_agent_runs(cycle_id);
+    CREATE INDEX IF NOT EXISTS idx_auto_sessions_created_at ON auto_sessions(created_at);
+  `);
+
   // Seed built-in agents
   seedBuiltinAgents(db);
 
@@ -277,6 +286,35 @@ export function initAutoTables(): void {
       FOREIGN KEY (session_id) REFERENCES auto_sessions(id) ON DELETE CASCADE
     );
   `);
+
+  // Crash recovery: fix orphaned running/in_progress states from previous server crashes
+  const recovered = recoverOrphanedStates();
+  if (recovered.total > 0) {
+    console.log(`[auto] Crash recovery: fixed ${recovered.sessions} sessions, ${recovered.cycles} cycles, ${recovered.agentRuns} agent runs, ${recovered.findings} findings`);
+  }
+}
+
+function recoverOrphanedStates(): { sessions: number; cycles: number; agentRuns: number; findings: number; total: number } {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  const sessions = db.prepare(
+    "UPDATE auto_sessions SET status = 'stopped', updated_at = ? WHERE status = 'running'"
+  ).run(now).changes;
+
+  const cycles = db.prepare(
+    "UPDATE auto_cycles SET status = 'failed', completed_at = ? WHERE status = 'running'"
+  ).run(now).changes;
+
+  const agentRuns = db.prepare(
+    "UPDATE auto_agent_runs SET status = 'failed', completed_at = ? WHERE status = 'running'"
+  ).run(now).changes;
+
+  const findings = db.prepare(
+    "UPDATE auto_findings SET status = 'open', updated_at = ? WHERE status = 'in_progress'"
+  ).run(now).changes;
+
+  return { sessions, cycles, agentRuns, findings, total: sessions + cycles + agentRuns + findings };
 }
 
 // Initialize tables on first import
@@ -492,6 +530,26 @@ export function getOpenAutoFindings(): AutoFinding[] {
   return db.prepare(
     "SELECT * FROM auto_findings WHERE status = 'open' ORDER BY priority ASC, created_at ASC"
   ).all() as AutoFinding[];
+}
+
+/**
+ * Atomically pick and claim the next actionable finding.
+ * Uses a SQLite transaction to prevent multiple workers from picking the same finding.
+ */
+export function pickAndClaimNextFinding(): AutoFinding | null {
+  const db = getDb();
+  const txn = db.transaction(() => {
+    const finding = db.prepare(
+      "SELECT * FROM auto_findings WHERE status = 'open' AND retry_count < max_retries ORDER BY priority ASC, created_at ASC LIMIT 1"
+    ).get() as AutoFinding | undefined;
+    if (!finding) return null;
+    const now = new Date().toISOString();
+    db.prepare(
+      "UPDATE auto_findings SET status = 'in_progress', updated_at = ? WHERE id = ?"
+    ).run(now, finding.id);
+    return { ...finding, status: 'in_progress' as const, updated_at: now };
+  });
+  return txn();
 }
 
 // --- Settings ---

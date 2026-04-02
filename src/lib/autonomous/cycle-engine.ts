@@ -911,7 +911,7 @@ class CycleEngineImpl {
     this.processNextCycle();
   }
 
-  private handleCycleComplete(result: { cost_usd: number | null; duration_ms: number | null; output: string; isError: boolean; isAuthError: boolean }): void {
+  private async handleCycleComplete(result: { cost_usd: number | null; duration_ms: number | null; output: string; isError: boolean; isAuthError: boolean }): Promise<void> {
     if (!this.currentSessionId || !this.currentCycleId) return;
 
     const session = getAutoSession(this.currentSessionId);
@@ -999,16 +999,15 @@ class CycleEngineImpl {
         const cycle = getAutoCycle(this.currentCycleId);
         if (cycle?.git_checkpoint) {
           const gitManager = new GitManager(session.target_project);
-          gitManager.rollback(cycle.git_checkpoint).then(success => {
-            if (success) {
-              updateAutoCycle(this.currentCycleId!, { status: 'rolled_back' });
-              this.emit({
-                type: 'git_rollback',
-                data: { checkpoint: cycle.git_checkpoint },
-                timestamp: new Date().toISOString(),
-              });
-            }
-          });
+          const rollbackSuccess = await gitManager.rollback(cycle.git_checkpoint);
+          if (rollbackSuccess) {
+            updateAutoCycle(this.currentCycleId!, { status: 'rolled_back' });
+            this.emit({
+              type: 'git_rollback',
+              data: { checkpoint: cycle.git_checkpoint },
+              timestamp: new Date().toISOString(),
+            });
+          }
         }
       }
     }

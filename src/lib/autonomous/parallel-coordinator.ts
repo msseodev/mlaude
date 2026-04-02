@@ -7,7 +7,7 @@ import {
   createAutoCycle,
   updateAutoCycle,
   updateAutoFinding,
-  getOpenAutoFindings,
+  pickAndClaimNextFinding,
   getAutoSession,
   updateAutoSession,
 } from './db';
@@ -230,18 +230,11 @@ export class WorkerPool {
 
   /**
    * Thread-safe finding picker.
-   * SQLite operations are synchronous in better-sqlite3, so marking as
-   * in_progress is atomic within a single Node.js tick.
+   * Uses a SQLite transaction to atomically select and claim the next finding,
+   * preventing multiple workers from picking the same finding.
    */
   private pickNextFinding(): AutoFinding | null {
-    const openFindings = getOpenAutoFindings();
-    const actionable = openFindings.filter(f => f.retry_count < f.max_retries && f.status === 'open');
-    actionable.sort((a, b) => a.priority.localeCompare(b.priority));
-    const finding = actionable[0] ?? null;
-    if (finding) {
-      updateAutoFinding(finding.id, { status: 'in_progress' });
-    }
-    return finding;
+    return pickAndClaimNextFinding();
   }
 
   /**

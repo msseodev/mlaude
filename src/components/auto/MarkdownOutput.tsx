@@ -54,7 +54,7 @@ export function MarkdownOutput({ text }: MarkdownOutputProps) {
       return <div className="text-sm font-bold text-white mt-1 mb-0.5">{children}</div>;
     },
     p({ children }: React.ComponentProps<'p'>) {
-      return <p className="my-0.5">{children}</p>;
+      return <p className="my-0.5 text-gray-300">{children}</p>;
     },
     ul({ children }: React.ComponentProps<'ul'>) {
       return <ul className="ml-4 list-disc space-y-0.5">{children}</ul>;

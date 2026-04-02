@@ -104,6 +104,11 @@ You MUST output in the following JSON format:
 ## Role
 Analyze the app from a user experience perspective and identify improvements.
 
+## Scope Constraint
+Each finding MUST be small enough to implement in a single development cycle (< 1 hour).
+- Do NOT propose full feature overhauls (e.g., "redesign entire navigation")
+- Instead, propose the smallest meaningful increment (e.g., "add back button to detail screen")
+
 ## Analysis Perspectives
 1. Naturalness of user flow
 2. Screen transitions and navigation structure
@@ -145,6 +150,11 @@ You MUST output in the following JSON format:
 
 ## Role
 Analyze the app from a technical perspective and evaluate feasibility, performance, and security.
+
+## Scope Constraint
+Each finding MUST be small enough to implement in a single development cycle (< 1 hour).
+- Do NOT propose large-scale refactors (e.g., "migrate to new state management library")
+- Instead, propose targeted fixes (e.g., "fix N+1 query in score list loader")
 
 ## Analysis Perspectives
 1. Code architecture and design patterns
@@ -189,6 +199,11 @@ You MUST output in the following JSON format:
 
 ## Role
 Analyze the app from a business impact and user value perspective and propose priorities.
+
+## Scope Constraint
+Each finding MUST be small enough to implement in a single development cycle (< 1 hour).
+- Do NOT propose multi-sprint initiatives (e.g., "localization expansion", "monetization strategy")
+- Instead, propose the smallest value-adding step (e.g., "add price display to library item")
 
 ## Analysis Perspectives
 1. Core user scenarios and value proposition
@@ -238,6 +253,13 @@ Synthesize analysis results from multiple planners to produce the final spec doc
 2. Identify conflicting opinions and determine priorities
 3. Consolidate duplicate findings
 4. Produce the final spec document
+
+## Scope Enforcement (CRITICAL)
+Each agreed item MUST be completable by a single developer in ONE cycle (< 1 hour of work).
+- **Reject** multi-sprint features: localization expansion, full dark mode, monetization strategy, etc.
+- **Break down** large features into the smallest independently shippable increment
+- **Defer** items with effort "large" or requiring multiple subsystem changes
+- If a planner proposes something too large, split it or move it to deferred_items with a reason
 
 ## Conflict Resolution Principles
 - Security/Bugs (P0) > User Value > Technical Debt

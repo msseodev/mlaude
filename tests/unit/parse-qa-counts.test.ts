@@ -76,4 +76,39 @@ describe('parseQAOutput', () => {
     const result = parseQAOutput(input);
     expect(result).toEqual({ passed: true, testOutput: input });
   });
+
+  it('uses new_failed when available, ignoring pre-existing failures', () => {
+    const input = '{"summary": {"passed": 10, "failed": 3, "new_failed": 0, "total": 13}}';
+    const result = parseQAOutput(input);
+    expect(result).toEqual({ passed: true, testOutput: input });
+  });
+
+  it('fails when new_failed is non-zero', () => {
+    const input = '{"summary": {"passed": 10, "failed": 3, "new_failed": 1, "total": 13}}';
+    const result = parseQAOutput(input);
+    expect(result).toEqual({ passed: false, testOutput: input });
+  });
+
+  it('passes when text indicates all failures are pre-existing and no new_failed in JSON', () => {
+    const input = 'Test results: 3 pre-existing failures found. No new regressions. {"summary": {"passed": 10, "failed": 3, "total": 13}}';
+    const result = parseQAOutput(input);
+    expect(result).toEqual({ passed: true, testOutput: input });
+  });
+
+  it('passes for pre-existing failures with "0 new failures" text pattern', () => {
+    const input = 'All 3 failures are pre-existing. 0 new failures detected. {"summary": {"passed": 10, "failed": 3, "total": 13}}';
+    const result = parseQAOutput(input);
+    expect(result).toEqual({ passed: true, testOutput: input });
+  });
+
+  it('parses deeply nested QA JSON with balanced brace extraction', () => {
+    const input = JSON.stringify({
+      test_case_file: "tests/e2e/test-cases/feature.md",
+      summary: { total: 5, passed: 5, failed: 3, new_failed: 0, skipped: 0 },
+      failures: [{ test_id: "TC-001", test_name: "test", severity: "minor" }],
+      acceptance_criteria_results: [{ criterion: "x", passed: true }],
+    });
+    const result = parseQAOutput(input);
+    expect(result).toEqual({ passed: true, testOutput: input });
+  });
 });

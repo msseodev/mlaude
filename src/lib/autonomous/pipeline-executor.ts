@@ -1043,21 +1043,106 @@ export function parseReviewOutput(output: string): { approved: boolean; feedback
 }
 
 export function parseQAOutput(output: string): { passed: boolean; testOutput: string } {
-  // Iterate over balanced {...} candidates to avoid greedy over-matching
+  // Strategy 1: Balanced-brace extraction for deeply nested QA JSON
+  const summaryIdx = output.indexOf('"summary"');
+  if (summaryIdx !== -1) {
+    const openIdx = output.lastIndexOf('{', summaryIdx);
+    if (openIdx !== -1) {
+      const json = extractBalancedBraces(output, openIdx);
+      if (json) {
+        try {
+          const parsed = JSON.parse(json);
+          if (parsed.summary && typeof parsed.summary === 'object') {
+            const result = evaluateQASummary(parsed.summary, output);
+            if (result !== null) return { passed: result, testOutput: output };
+          }
+        } catch { /* continue to fallback */ }
+      }
+    }
+  }
+
+  // Strategy 2: Shallow regex fallback for simpler JSON
   const braceMatches = output.matchAll(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g);
   for (const m of braceMatches) {
     try {
       const parsed = JSON.parse(m[0]);
       if (parsed.summary && typeof parsed.summary === 'object') {
-        const newFailed = parsed.summary.new_failed;
-        const failed = parsed.summary.failed ?? 0;
-        // Use new_failed if available (distinguishes regressions from pre-existing failures)
-        const relevantFailures = typeof newFailed === 'number' ? newFailed : failed;
-        return { passed: relevantFailures === 0, testOutput: output };
+        const result = evaluateQASummary(parsed.summary, output);
+        if (result !== null) return { passed: result, testOutput: output };
       }
     } catch { continue; }
   }
+
+  // Strategy 3: Text-based heuristic when QA output mentions pre-existing failures
+  // but did not produce parseable JSON with summary
+  if (hasPreExistingOnlyFailures(output)) {
+    return { passed: true, testOutput: output };
+  }
+
   return { passed: true, testOutput: output };
+}
+
+/**
+ * Evaluate a QA summary object to determine pass/fail.
+ * Returns null if the summary doesn't contain usable data.
+ */
+function evaluateQASummary(summary: Record<string, unknown>, fullOutput: string): boolean | null {
+  const newFailed = summary.new_failed;
+  const failed = summary.failed;
+
+  // If new_failed is explicitly provided, use it (distinguishes regressions from pre-existing)
+  if (typeof newFailed === 'number') {
+    return newFailed === 0;
+  }
+
+  // new_failed not provided — check text for pre-existing failure evidence
+  if (typeof failed === 'number' && failed > 0) {
+    if (hasPreExistingOnlyFailures(fullOutput)) {
+      return true; // All failures are pre-existing, not regressions
+    }
+    return false; // Can't confirm pre-existing, treat as real failures
+  }
+
+  // No failures at all
+  if (typeof failed === 'number' && failed === 0) {
+    return true;
+  }
+
+  return null;
+}
+
+/**
+ * Detect whether QA output indicates all failures are pre-existing (not new regressions).
+ */
+function hasPreExistingOnlyFailures(output: string): boolean {
+  const hasPreExisting = /pre.?existing|known\s+fail|already\s+fail/i.test(output);
+  const hasNoNew = /new.?failed[":\s]*0|no\s+new\s+(regression|failure)|0\s+new\s+failure|all\s+(failures?\s+)?(are\s+)?pre.?existing/i.test(output);
+  return hasPreExisting && hasNoNew;
+}
+
+/**
+ * Extract balanced JSON from text starting at the given index.
+ */
+function extractBalancedBraces(text: string, startIdx: number): string | null {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = startIdx; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\' && inString) { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        const candidate = text.slice(startIdx, i + 1);
+        try { JSON.parse(candidate); return candidate; } catch { return null; }
+      }
+    }
+  }
+  return null;
 }
 
 export function parseDeveloperOutput(output: string): { blocked: boolean; blockerReason: string } {

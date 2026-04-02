@@ -29,6 +29,11 @@ export class WorkerPool {
   private cycleCounter: number;
   private activePromises: Map<number, Promise<void>> = new Map();
   private mergeLock: Promise<void> = Promise.resolve();
+  private _completedCycles: number = 0;
+  private _failedCycles: number = 0;
+  /** true if the last cycle in the batch (by cycle_number) succeeded */
+  private _lastCycleSucceeded: boolean = false;
+  private _lastCompletedCycleNumber: number = -1;
 
   constructor(
     private session: AutoSession,
@@ -74,6 +79,16 @@ export class WorkerPool {
   getCycleCount(): number {
     return this.cycleCounter;
   }
+
+  /** Number of cycles that completed successfully in this batch */
+  get completedCycles(): number { return this._completedCycles; }
+  /** Number of cycles that failed in this batch */
+  get failedCycles(): number { return this._failedCycles; }
+  /** Whether the last finished cycle (by cycle_number) succeeded — used for consecutive failure tracking */
+  get lastCycleSucceeded(): boolean { return this._lastCycleSucceeded; }
+  /** Count of consecutive failures at the tail of this batch */
+  get trailingFailureCount(): number { return this._trailingFailures; }
+  private _trailingFailures: number = 0;
 
   private async runWorker(workerId: number): Promise<void> {
     while (!this.stopped) {
@@ -163,13 +178,15 @@ export class WorkerPool {
         });
       }
 
-      // 7. Handle result
-      if (pipelineResult?.success) {
+      // 7. Handle result and track success/failure counts
+      const cycleSucceeded = !!pipelineResult?.success;
+      if (cycleSucceeded) {
+        this._completedCycles++;
         updateAutoCycle(cycle.id, {
           status: 'completed',
-          output: pipelineResult.finalOutput,
-          cost_usd: pipelineResult.totalCostUsd,
-          duration_ms: pipelineResult.totalDurationMs,
+          output: pipelineResult!.finalOutput,
+          cost_usd: pipelineResult!.totalCostUsd,
+          duration_ms: pipelineResult!.totalDurationMs,
           completed_at: new Date().toISOString(),
         });
 
@@ -180,6 +197,7 @@ export class WorkerPool {
         // Merge (sequential -- only one worker merges at a time using a lock)
         await this.mergeWithLock(gitManager, branchName, finding, cycle.id);
       } else {
+        this._failedCycles++;
         updateAutoCycle(cycle.id, {
           status: 'failed',
           completed_at: new Date().toISOString(),
@@ -189,6 +207,17 @@ export class WorkerPool {
           status: newRetry >= finding.max_retries ? 'wont_fix' : 'open',
           retry_count: newRetry,
         });
+      }
+
+      // Track trailing failures for consecutive failure counting
+      if (cycleNumber > this._lastCompletedCycleNumber) {
+        this._lastCompletedCycleNumber = cycleNumber;
+        this._lastCycleSucceeded = cycleSucceeded;
+      }
+      if (cycleSucceeded) {
+        this._trailingFailures = 0;
+      } else {
+        this._trailingFailures++;
       }
 
       // 8. Update session totals

@@ -174,32 +174,7 @@ class CycleEngineImpl {
   async stop(): Promise<void> {
     this.isStopping = true;
     this.watchdog.stop();
-
-    this.workerPool?.stop();
-    this.workerPool = null;
-
-    this.pipelineExecutor?.abort();
-    this.pipelineExecutor = null;
-
-    if (this.executor) {
-      this.executor.kill();
-      this.executor = null;
-    }
-
-    if (this.retryTimer) {
-      clearTimeout(this.retryTimer);
-      this.retryTimer = null;
-    }
-    this.waitingUntil = null;
-
-    // Update current cycle if any
-    if (this.currentCycleId) {
-      updateAutoCycle(this.currentCycleId, {
-        status: 'failed',
-        output: this.currentOutput,
-        completed_at: new Date().toISOString(),
-      });
-    }
+    this.killRunningAgents();
 
     if (this.currentSessionId) {
       updateAutoSession(this.currentSessionId, { status: 'stopped' });
@@ -221,32 +196,8 @@ class CycleEngineImpl {
 
     this.isPaused = true;
     this.watchdog.stop();
-
-    this.workerPool?.stop();
-    this.workerPool = null;
-
-    this.pipelineExecutor?.abort();
-    this.pipelineExecutor = null;
-
-    if (this.executor) {
-      this.executor.kill();
-      this.executor = null;
-    }
-
-    if (this.retryTimer) {
-      clearTimeout(this.retryTimer);
-      this.retryTimer = null;
-    }
-    this.waitingUntil = null;
-
-    if (this.currentCycleId) {
-      updateAutoCycle(this.currentCycleId, {
-        status: 'failed',
-        output: this.currentOutput,
-        completed_at: new Date().toISOString(),
-      });
-      this.currentCycleId = null;
-    }
+    this.killRunningAgents();
+    this.currentCycleId = null;
 
     updateAutoSession(this.currentSessionId, { status: 'paused' });
     this.emit({
@@ -874,6 +825,15 @@ class CycleEngineImpl {
 
     this.cycleNumber = this.workerPool.getCycleCount();
 
+    // Update consecutive failure counter from parallel batch results
+    // Use trailing failure count: if the batch ended with N failures in a row, carry that forward
+    if (this.workerPool.completedCycles > 0 && this.workerPool.lastCycleSucceeded) {
+      this.consecutiveFailures = 0;
+      this.retryCount = 0;
+    } else {
+      this.consecutiveFailures += this.workerPool.trailingFailureCount;
+    }
+
     if (this.workerPool?.abortedByAuthError) {
       // Pause session with auth_expired notification
       updateAutoSession(this.currentSessionId!, { status: 'paused' });
@@ -1181,6 +1141,9 @@ class CycleEngineImpl {
     // Consecutive failures
     const maxFailures = settings.max_consecutive_failures || MAX_CONSECUTIVE_FAILURES_DEFAULT;
     if (this.consecutiveFailures >= maxFailures) {
+      // Kill any running agents before pausing
+      this.killRunningAgents();
+
       updateAutoSession(this.currentSessionId, { status: 'paused' });
       this.emit({
         type: 'session_status',
@@ -1223,6 +1186,9 @@ class CycleEngineImpl {
   private completeSession(reason: string): void {
     if (!this.currentSessionId) return;
 
+    // Kill any running agents before completing
+    this.killRunningAgents();
+
     updateAutoSession(this.currentSessionId, { status: 'completed' });
     this.emit({
       type: 'session_status',
@@ -1233,6 +1199,39 @@ class CycleEngineImpl {
     caffeinateManager.release();
     this.updateStateFile();
     this.resetState();
+  }
+
+  /**
+   * Kill all running agent processes and mark orphaned cycles as failed.
+   * Called during stop, pause-by-safety-limit, and session completion
+   * to prevent zombie claude processes.
+   */
+  private killRunningAgents(): void {
+    this.workerPool?.stop();
+    this.workerPool = null;
+
+    this.pipelineExecutor?.abort();
+    this.pipelineExecutor = null;
+
+    if (this.executor) {
+      this.executor.kill();
+      this.executor = null;
+    }
+
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+    this.waitingUntil = null;
+
+    // Mark current cycle as failed if still running
+    if (this.currentCycleId) {
+      updateAutoCycle(this.currentCycleId, {
+        status: 'failed',
+        output: this.currentOutput || 'Session stopped — cycle aborted',
+        completed_at: new Date().toISOString(),
+      });
+    }
   }
 
   private resetState(): void {

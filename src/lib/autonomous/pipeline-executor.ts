@@ -1052,8 +1052,11 @@ export function parseQAOutput(output: string): { passed: boolean; testOutput: st
     try {
       const parsed = JSON.parse(m[0]);
       if (parsed.summary && typeof parsed.summary === 'object') {
+        const newFailed = parsed.summary.new_failed;
         const failed = parsed.summary.failed ?? 0;
-        return { passed: failed === 0, testOutput: output };
+        // Use new_failed if available (distinguishes regressions from pre-existing failures)
+        const relevantFailures = typeof newFailed === 'number' ? newFailed : failed;
+        return { passed: relevantFailures === 0, testOutput: output };
       }
     } catch { continue; }
   }

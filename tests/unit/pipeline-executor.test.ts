@@ -135,6 +135,39 @@ describe('parseQAOutput', () => {
     const result = parseQAOutput('');
     expect(result.passed).toBe(true);
   });
+
+  it('uses new_failed instead of failed when new_failed is present', () => {
+    const output = JSON.stringify({
+      summary: { total: 10, passed: 7, failed: 3, new_failed: 0, skipped: 0 },
+      failures: [],
+    });
+    const result = parseQAOutput(output);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when new_failed > 0 even if failed includes pre-existing failures', () => {
+    const output = JSON.stringify({
+      summary: { total: 10, passed: 7, failed: 3, new_failed: 1, skipped: 0 },
+      failures: [{ test_name: 'new regression', error_message: 'assertion failed' }],
+    });
+    const result = parseQAOutput(output);
+    expect(result.passed).toBe(false);
+  });
+
+  it('falls back to failed when new_failed is not present', () => {
+    const output = JSON.stringify({
+      summary: { total: 10, passed: 8, failed: 2, skipped: 0 },
+      failures: [],
+    });
+    const result = parseQAOutput(output);
+    expect(result.passed).toBe(false);
+  });
+
+  it('uses new_failed from mixed output with surrounding text', () => {
+    const output = 'Test results:\n\n{"summary": {"total": 5, "passed": 3, "failed": 2, "new_failed": 0}}\n\nAll new changes verified.';
+    const result = parseQAOutput(output);
+    expect(result.passed).toBe(true);
+  });
 });
 
 describe('parseDeveloperOutput', () => {

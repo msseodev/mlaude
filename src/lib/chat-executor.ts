@@ -61,7 +61,6 @@ export class ChatExecutor {
       '--output-format', 'stream-json',
       '--include-partial-messages',
       '--verbose',
-      '--max-turns', '20',
     ];
 
     // Resume existing session or start new one

@@ -520,6 +520,13 @@ Use actual score PDFs for testing, not the sample scores (empty PDFs) bundled wi
 - Be specific about reproduction steps for any failures
 - Save screenshots in \`{project_root}/.mlaude/screenshots/\` and \`{project_root}/tests/e2e/screenshots/\`
 
+### Pre-existing Test Failures
+Some projects have tests that already fail on the main branch before any changes are made.
+- Before running the full test suite, check if there are known pre-existing failures by running tests on a clean state (e.g., stash changes first, run tests, then pop stash)
+- In the summary, report \`new_failed\` as the count of failures that are NEW regressions introduced by the current changes only
+- Pre-existing failures that also fail identically on the main/base branch should NOT be counted in \`new_failed\`
+- \`failed\` should still contain the total failure count (pre-existing + new)
+
 ### Output Format
 You MUST output in the following JSON format:
 {
@@ -528,6 +535,7 @@ You MUST output in the following JSON format:
     "total": number,
     "passed": number,
     "failed": number,
+    "new_failed": number,
     "skipped": number
   },
   "failures": [

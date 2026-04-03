@@ -128,6 +128,20 @@ export class GitManager {
     }
   }
 
+  async resetWorktree(worktreePath: string): Promise<boolean> {
+    try {
+      // Get current main branch HEAD
+      const { stdout: headSha } = await this.execGit(['rev-parse', 'HEAD']);
+      const sha = headSha.trim();
+      // Reset worktree branch to main HEAD and clean
+      await execFileAsync('git', ['reset', '--hard', sha], { cwd: worktreePath });
+      await execFileAsync('git', ['clean', '-fd'], { cwd: worktreePath });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async mergeWorktreeBranch(branchName: string): Promise<{ success: boolean; conflicted: boolean }> {
     try {
       await this.execGit(['merge', '--no-ff', branchName]);

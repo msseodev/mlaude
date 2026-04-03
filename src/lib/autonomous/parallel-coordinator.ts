@@ -12,7 +12,6 @@ import {
   updateAutoSession,
 } from './db';
 import type { AutoSession, AutoFinding, AutoSSEEvent, PipelineType } from './types';
-import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -30,6 +29,8 @@ export class WorkerPool {
   private activePromises: Map<number, Promise<void>> = new Map();
   private activeExecutors: Map<number, PipelineExecutor> = new Map();
   private mergeLock: Promise<void> = Promise.resolve();
+  private worktreePool: Map<number, { path: string; branch: string }> = new Map();
+  private poolDestroyed = false;
   private _completedCycles: number = 0;
   private _failedCycles: number = 0;
   /** true if the last cycle in the batch (by cycle_number) succeeded */
@@ -52,6 +53,14 @@ export class WorkerPool {
       timestamp: new Date().toISOString(),
     });
 
+    // Create fixed worktree pool
+    try {
+      await this.initWorktreePool();
+    } catch (err) {
+      await this.destroyWorktreePool();
+      throw err;
+    }
+
     // Launch N workers
     for (let i = 0; i < this.maxWorkers; i++) {
       this.workers.set(i, { active: false, findingId: null, cycleId: null });
@@ -59,6 +68,9 @@ export class WorkerPool {
     }
     // Wait for all workers to finish (they stop when no more findings)
     await Promise.allSettled([...this.activePromises.values()]);
+
+    // Destroy worktree pool
+    await this.destroyWorktreePool();
 
     this.emit({
       type: 'parallel_batch_complete',
@@ -73,6 +85,9 @@ export class WorkerPool {
       executor.abort();
     }
     this.activeExecutors.clear();
+    // Pool cleanup happens asynchronously after workers exit in start()
+    // but we also schedule it here for immediate cleanup on force stop
+    this.destroyWorktreePool().catch(() => { /* best-effort */ });
   }
 
   getStatus(): { workers: Array<{ id: number; active: boolean; findingId: string | null; cycleId: string | null }> } {
@@ -96,30 +111,27 @@ export class WorkerPool {
   private _trailingFailures: number = 0;
 
   private async runWorker(workerId: number): Promise<void> {
+    const wt = this.worktreePool.get(workerId);
+    if (!wt) return;
+
     while (!this.stopped) {
       // 1. Pick next actionable finding
       const finding = this.pickNextFinding();
-      if (!finding) break; // No more findings, worker exits
+      if (!finding) break;
 
       this.workers.set(workerId, { active: true, findingId: finding.id, cycleId: null });
 
-      // 2. Assign cycle number (atomic increment)
+      // 2. Assign cycle number
       const cycleNumber = this.cycleCounter++;
 
-      // 3. Create worktree
+      // 3. Reset worktree to current main HEAD
       const gitManager = new GitManager(this.session.target_project);
-      const batchId = uuidv4().slice(0, 8);
-      const branchName = `auto/worker-${workerId}-${batchId}`;
-      const worktreePath = path.join(this.session.target_project, '.mlaude', 'worktrees', `w${workerId}-${batchId}`);
-
-      await fs.mkdir(path.dirname(worktreePath), { recursive: true });
-      const ok = await gitManager.createWorktree(branchName, worktreePath);
-      if (!ok) {
+      const resetOk = await gitManager.resetWorktree(wt.path);
+      if (!resetOk) {
         updateAutoFinding(finding.id, { status: 'open' });
         this.workers.set(workerId, { active: false, findingId: null, cycleId: null });
         continue;
       }
-      await this.symlinkDependencies(this.session.target_project, worktreePath);
 
       // 4. Create cycle record
       const cycle = createAutoCycle({
@@ -150,7 +162,7 @@ export class WorkerPool {
       });
 
       // 6. Run pipeline
-      const worktreeSession = { ...this.session, target_project: worktreePath };
+      const worktreeSession = { ...this.session, target_project: wt.path };
       const executor = new PipelineExecutor(
         worktreeSession,
         cycle.id,
@@ -186,7 +198,7 @@ export class WorkerPool {
         this.activeExecutors.delete(workerId);
       }
 
-      // 7. Handle result and track success/failure counts
+      // 7. Handle result
       const cycleSucceeded = !!pipelineResult?.success;
       if (cycleSucceeded) {
         this._completedCycles++;
@@ -199,11 +211,11 @@ export class WorkerPool {
         });
 
         // Commit in worktree
-        const worktreeGit = new GitManager(worktreePath);
+        const worktreeGit = new GitManager(wt.path);
         await worktreeGit.commitAll(`fix: ${finding.title}`);
 
-        // Merge (sequential -- only one worker merges at a time using a lock)
-        await this.mergeWithLock(gitManager, branchName, finding, cycle.id);
+        // Merge
+        await this.mergeWithLock(gitManager, wt.branch, finding, cycle.id);
       } else {
         this._failedCycles++;
         updateAutoCycle(cycle.id, {
@@ -217,7 +229,7 @@ export class WorkerPool {
         });
       }
 
-      // Track trailing failures for consecutive failure counting
+      // Track trailing failures
       if (cycleNumber > this._lastCompletedCycleNumber) {
         this._lastCompletedCycleNumber = cycleNumber;
         this._lastCycleSucceeded = cycleSucceeded;
@@ -239,22 +251,16 @@ export class WorkerPool {
         }
       }
 
-      // 9. Cleanup worktree
-      await gitManager.removeWorktree(worktreePath);
-      await gitManager.deleteBranch(branchName);
-      try { await fs.rm(worktreePath, { recursive: true }); } catch { /* ignore */ }
-
-      // 10. Rate limit check
+      // 9. Rate limit check (no worktree cleanup needed -- pool handles it)
       if (pipelineResult?.abortedByRateLimit) {
         this.stopped = true;
         break;
       }
 
-      // 11. Auth error check
+      // 10. Auth error check
       if (pipelineResult?.abortedByAuthError) {
         this.stopped = true;
         this.abortedByAuthError = true;
-        // Reset finding back to open (don't count as failure)
         updateAutoFinding(finding.id, { status: 'open' });
         break;
       }
@@ -263,6 +269,41 @@ export class WorkerPool {
     }
 
     this.workers.set(workerId, { active: false, findingId: null, cycleId: null });
+  }
+
+  private async initWorktreePool(): Promise<void> {
+    this.poolDestroyed = false;
+    const gitManager = new GitManager(this.session.target_project);
+    const baseDir = path.join(this.session.target_project, '.mlaude', 'worktrees');
+    await fs.mkdir(baseDir, { recursive: true });
+
+    for (let i = 0; i < this.maxWorkers; i++) {
+      const worktreePath = path.join(baseDir, `w${i}`);
+      const branchName = `auto/worker-${i}`;
+
+      // Clean up any leftover from previous run
+      await gitManager.removeWorktree(worktreePath);
+      await gitManager.deleteBranch(branchName);
+      try { await fs.rm(worktreePath, { recursive: true }); } catch { /* ignore */ }
+
+      const ok = await gitManager.createWorktree(branchName, worktreePath);
+      if (!ok) throw new Error(`Failed to create worktree for worker ${i}`);
+
+      await this.symlinkDependencies(this.session.target_project, worktreePath);
+      this.worktreePool.set(i, { path: worktreePath, branch: branchName });
+    }
+  }
+
+  private async destroyWorktreePool(): Promise<void> {
+    if (this.poolDestroyed) return;
+    this.poolDestroyed = true;
+    const gitManager = new GitManager(this.session.target_project);
+    for (const [, { path: wPath, branch }] of this.worktreePool) {
+      await gitManager.removeWorktree(wPath);
+      await gitManager.deleteBranch(branch);
+      try { await fs.rm(wPath, { recursive: true }); } catch { /* ignore */ }
+    }
+    this.worktreePool.clear();
   }
 
   /**

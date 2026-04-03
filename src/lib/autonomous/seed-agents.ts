@@ -875,7 +875,6 @@ export function seedBuiltinAgents(db: Database.Database): void {
         pipeline_order = excluded.pipeline_order,
         model = excluded.model,
         parallel_group = excluded.parallel_group,
-        enabled = excluded.enabled,
         updated_at = excluded.updated_at
       WHERE is_builtin = 1
     `);
@@ -907,7 +906,6 @@ export function seedBuiltinAgents(db: Database.Database): void {
         system_prompt = excluded.system_prompt,
         pipeline_order = excluded.pipeline_order,
         model = excluded.model,
-        enabled = excluded.enabled,
         updated_at = excluded.updated_at
       WHERE is_builtin = 1
     `);
@@ -937,7 +935,6 @@ export function seedBuiltinAgents(db: Database.Database): void {
         role_description = excluded.role_description,
         system_prompt = excluded.system_prompt,
         pipeline_order = excluded.pipeline_order,
-        enabled = excluded.enabled,
         updated_at = excluded.updated_at
       WHERE is_builtin = 1
     `);

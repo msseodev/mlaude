@@ -13,11 +13,10 @@ const tocItems = [
   { id: 'code-review-loop', label: '6. Code Review Loop' },
   { id: 'ceo-escalation', label: '7. CEO Escalation' },
   { id: 'commands', label: '8. Built-in Commands' },
-  { id: 'self-evolution', label: '9. Prompt Self-Evolution' },
-  { id: 'scoring', label: '10. Scoring System (Cycle Scoring)' },
-  { id: 'settings-guide', label: '11. Settings Guide' },
-  { id: 'report-usage', label: '12. Using Reports' },
-  { id: 'faq', label: '13. FAQ' },
+  { id: 'scoring', label: '9. Scoring System (Cycle Scoring)' },
+  { id: 'settings-guide', label: '10. Settings Guide' },
+  { id: 'report-usage', label: '11. Using Reports' },
+  { id: 'faq', label: '12. FAQ' },
 ];
 
 // --- FAQ data ---
@@ -25,7 +24,7 @@ const tocItems = [
 const faqItems = [
   {
     q: 'What if costs get too high?',
-    a: 'Set a budget (budget_usd) and the system will auto-stop when the limit is exceeded. Specify the budget in USD on the Settings page. 0 means unlimited.',
+    a: 'Set max_cycles to limit how many cycles run. The system will auto-stop when the limit is reached. 0 means unlimited.',
   },
   {
     q: 'What if incorrect code gets committed?',
@@ -53,16 +52,12 @@ const settingsData = [
   { name: 'Build Command', key: 'build_command', desc: 'Command to verify build (leave empty to skip)', default: '(none)' },
   { name: 'Lint Command', key: 'lint_command', desc: 'Command to verify lint (leave empty to skip)', default: '(none)' },
   { name: 'Max Cycles', key: 'max_cycles', desc: '0 = unlimited, N = auto-stop after N cycles', default: '0' },
-  { name: 'Budget', key: 'budget_usd', desc: 'Cost limit in USD, 0 = unlimited', default: '0' },
   { name: 'Auto Commit', key: 'auto_commit', desc: 'Automatically git commit on successful cycle', default: 'true' },
   { name: 'Branch', key: 'branch_name', desc: 'Working branch name', default: 'auto/improvements' },
   { name: 'Max Retries', key: 'max_retries', desc: 'Maximum retry attempts per finding', default: '3' },
   { name: 'Consecutive Failure Limit', key: 'max_consecutive_failures', desc: 'Auto-stop after N consecutive failures', default: '5' },
   { name: 'Review Iterations', key: 'review_max_iterations', desc: 'Max Reviewer - Developer feedback iterations', default: '2' },
   { name: 'Planner Iterations', key: 'max_designer_iterations', desc: 'Max Moderator - Developer feedback iterations', default: '2' },
-  { name: 'Prompt Evolution', key: 'evolution_enabled', desc: 'Enable automatic prompt improvement', default: 'false' },
-  { name: 'Evolution Interval', key: 'evolution_interval', desc: 'Check for evolution every N cycles', default: '10' },
-  { name: 'Evaluation Window', key: 'evolution_window', desc: 'Evaluate performance over last N cycles', default: '5' },
 ];
 
 // --- FAQ Accordion Item ---
@@ -491,59 +486,13 @@ Reviewer: Code review
             </div>
           </section>
 
-          {/* 9. Prompt Self-Evolution */}
+          {/* 9. Scoring System */}
           <section>
-            <SectionHeading id="self-evolution" number={9} title="Prompt Self-Evolution" />
-            <div className="space-y-4 text-sm leading-relaxed">
-              <p>
-                This feature <strong className="text-zinc-100">automatically improves agent system prompts using AI</strong>.
-                Every N cycles, agent performance is evaluated, and underperforming agents have their prompts mutated.
-              </p>
-
-              <div className="bg-zinc-950 rounded-lg p-5 border border-zinc-700 font-mono text-xs">
-                <pre className="text-zinc-300">{`Every N cycles:
-    |
-    v
-Evaluate each agent's recent performance (evaluation window)
-    |
-    +-- Performance OK -> Keep current prompt
-    |
-    +-- Underperforming
-         |
-         v
-    AI generates prompt mutation
-         |
-         v
-    Run N cycles with mutated prompt
-         |
-         +-- Performance improved -> Adopt mutated prompt
-         |
-         +-- Performance worsened -> Roll back to previous prompt`}</pre>
-              </div>
-
-              <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
-                <h3 className="font-semibold text-zinc-100 mb-2">Related Settings</h3>
-                <ul className="space-y-1 text-zinc-300">
-                  <li><code className="bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-200 text-xs">evolution_enabled</code> - Enable/disable (default: disabled)</li>
-                  <li><code className="bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-200 text-xs">evolution_interval</code> - Evolution check interval (default: 10 cycles)</li>
-                  <li><code className="bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-200 text-xs">evolution_window</code> - Number of recent cycles to evaluate (default: 5)</li>
-                </ul>
-              </div>
-
-              <InfoBox>
-                Prompt evolution is an experimental feature. It is recommended to enable it only when the system is sufficiently stable.
-                Evolution results can be viewed as prompt mutation history on the Agents page.
-              </InfoBox>
-            </div>
-          </section>
-
-          {/* 10. Scoring System */}
-          <section>
-            <SectionHeading id="scoring" number={10} title="Scoring System (Cycle Scoring)" />
+            <SectionHeading id="scoring" number={9} title="Scoring System (Cycle Scoring)" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
                 Each cycle is assigned a <strong className="text-zinc-100">composite score of 0-100</strong>.
-                This score is used for prompt evolution, performance tracking, and quality monitoring.
+                This score is used for performance tracking and quality monitoring.
               </p>
 
               <div className="bg-zinc-800 rounded-lg border border-zinc-700 overflow-hidden">
@@ -596,7 +545,7 @@ Evaluate each agent's recent performance (evaluation window)
 
           {/* 11. Settings Guide */}
           <section>
-            <SectionHeading id="settings-guide" number={11} title="Settings Guide" />
+            <SectionHeading id="settings-guide" number={10} title="Settings Guide" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
                 On the Settings page (<code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-200 text-xs">/auto/settings</code>),
@@ -633,7 +582,7 @@ Evaluate each agent's recent performance (evaluation window)
 
           {/* 12. Using Reports */}
           <section>
-            <SectionHeading id="report-usage" number={12} title="Using Reports" />
+            <SectionHeading id="report-usage" number={11} title="Using Reports" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
                 The Report page (<code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-200 text-xs">/auto/report</code>) is
@@ -668,7 +617,7 @@ Evaluate each agent's recent performance (evaluation window)
 
           {/* 13. FAQ */}
           <section>
-            <SectionHeading id="faq" number={13} title="FAQ" />
+            <SectionHeading id="faq" number={12} title="FAQ" />
             <div className="space-y-3">
               {faqItems.map((item, i) => (
                 <FAQItem key={i} question={item.q} answer={item.a} />

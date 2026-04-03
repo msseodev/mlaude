@@ -13,8 +13,6 @@ import { summarizeAgentOutputs, generateCommitMessage } from './summarizer';
 import { runCommand } from './command-runner';
 import type { CommandResult } from './command-runner';
 import { scoreCycle } from './cycle-scorer';
-import { checkAndEvolve } from './prompt-evolver';
-import { getVariantHistory, updatePromptVariant } from './evolution-db';
 import type { AutoUserPrompt, AutoSettings } from './types';
 import {
   createAutoSession,
@@ -782,38 +780,11 @@ class CycleEngineImpl {
       score_breakdown: JSON.stringify(score),
     });
 
-    // Update evaluating variant stats for agents that ran in this cycle
-    if (cycleStatus === 'completed' && score.composite_score != null) {
-      for (const agentRun of result.agentRuns) {
-        const variants = getVariantHistory(agentRun.agent_id).filter(v => v.status === 'evaluating');
-        if (variants.length > 0) {
-          const variant = variants[0];
-          const newCyclesEvaluated = variant.cycles_evaluated + 1;
-          const prevTotal = (variant.avg_score ?? 0) * variant.cycles_evaluated;
-          const newAvgScore = (prevTotal + score.composite_score) / newCyclesEvaluated;
-          updatePromptVariant(variant.id, {
-            cycles_evaluated: newCyclesEvaluated,
-            avg_score: newAvgScore,
-          });
-        }
-      }
-    }
-
     // Update session totals
     updateAutoSession(this.currentSessionId, {
       total_cycles: session.total_cycles + 1,
       total_cost_usd: session.total_cost_usd + result.totalCostUsd,
     });
-
-    // Evolution check
-    if (settings.evolution_enabled &&
-        this.cycleNumber > 0 &&
-        this.cycleNumber % settings.evolution_interval === 0) {
-      const claudeBinary = getSetting('claude_binary') || 'claude';
-      await checkAndEvolve(
-        this.currentSessionId, this.cycleNumber, settings, claudeBinary, this.emit.bind(this)
-      );
-    }
 
     // Track consecutive failures
     if (!result.success) {
@@ -940,16 +911,6 @@ class CycleEngineImpl {
     }
 
     this.workerPool = null;
-
-    // Evolution check
-    if (this.currentSessionId && settings.evolution_enabled &&
-        this.cycleNumber > 0 &&
-        this.cycleNumber % settings.evolution_interval === 0) {
-      const claudeBinary = getSetting('claude_binary') || 'claude';
-      await checkAndEvolve(
-        this.currentSessionId, this.cycleNumber, settings, claudeBinary, this.emit.bind(this)
-      );
-    }
 
     // Write SESSION-STATE.md
     await this.updateStateFile();
@@ -1217,12 +1178,6 @@ class CycleEngineImpl {
     // Max cycles
     if (settings.max_cycles > 0 && session.total_cycles >= settings.max_cycles) {
       this.completeSession('max_cycles_reached');
-      return false;
-    }
-
-    // Budget
-    if (settings.budget_usd > 0 && session.total_cost_usd >= settings.budget_usd) {
-      this.completeSession('budget_exceeded');
       return false;
     }
 

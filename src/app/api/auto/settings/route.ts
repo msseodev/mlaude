@@ -20,15 +20,13 @@ export async function PUT(request: NextRequest) {
 
     // Save each setting
     const settingKeys = [
-      'target_project', 'test_command', 'max_cycles', 'budget_usd',
-      'discovery_interval', 'review_interval', 'auto_commit', 'branch_name',
+      'target_project', 'test_command', 'max_cycles',
+      'auto_commit', 'branch_name',
       'max_retries', 'max_consecutive_failures',
       // v2 settings
       'review_max_iterations', 'skip_designer_for_fixes', 'require_initial_prompt',
       // v3 settings: generic evaluation commands
       'build_command', 'lint_command',
-      // v4 settings: prompt evolution
-      'evolution_enabled', 'evolution_interval', 'evolution_window',
       // v5 settings: screen capture
       'screenshot_dir',
       // v7 settings: global prompt

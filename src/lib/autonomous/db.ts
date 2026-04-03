@@ -2,7 +2,6 @@ import { getDb } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 import type { AutoSession, AutoCycle, AutoFinding, AutoSettings, AutoUserPrompt, AutoAgent, AutoAgentRun, CEORequest, CEORequestType, CEORequestStatus } from './types';
 import { seedBuiltinAgents } from './seed-agents';
-import { initEvolutionTables } from './evolution-db';
 import { initMemoryTables } from './memory-db';
 
 const DEFAULT_GLOBAL_PROMPT = `## Autonomy & CEO Escalation Policy
@@ -210,9 +209,6 @@ export function initAutoTables(): void {
   insertSetting.run('target_project', '');
   insertSetting.run('test_command', 'npm test');
   insertSetting.run('max_cycles', '0');
-  insertSetting.run('budget_usd', '0');
-  insertSetting.run('discovery_interval', '10');
-  insertSetting.run('review_interval', '5');
   insertSetting.run('auto_commit', 'true');
   insertSetting.run('branch_name', 'auto/improvements');
   insertSetting.run('max_retries', '3');
@@ -225,10 +221,6 @@ export function initAutoTables(): void {
   // v3 settings: generic evaluation commands
   insertSetting.run('build_command', '');
   insertSetting.run('lint_command', '');
-  // v4 settings: prompt evolution
-  insertSetting.run('evolution_enabled', 'false');
-  insertSetting.run('evolution_interval', '10');
-  insertSetting.run('evolution_window', '5');
   // v5 settings: screen capture
   insertSetting.run('screenshot_dir', '');
   // v7 settings: global prompt for all agents
@@ -247,9 +239,6 @@ export function initAutoTables(): void {
   insertSetting.run('memory_enabled', 'true');
   insertSetting.run('knowledge_extraction_interval', '5');
   insertSetting.run('max_knowledge_context_chars', '3500');
-
-  // Initialize evolution tables
-  initEvolutionTables();
 
   // v10: Memory tables
   initMemoryTables();
@@ -656,9 +645,6 @@ export function getAllAutoSettings(): AutoSettings {
     build_command: getAutoSetting('build_command') ?? '',
     lint_command: getAutoSetting('lint_command') ?? '',
     max_cycles: Number(getAutoSetting('max_cycles') ?? '0'),
-    budget_usd: Number(getAutoSetting('budget_usd') ?? '0'),
-    discovery_interval: Number(getAutoSetting('discovery_interval') ?? '10'),
-    review_interval: Number(getAutoSetting('review_interval') ?? '5'),
     auto_commit: getAutoSetting('auto_commit') !== 'false',
     branch_name: getAutoSetting('branch_name') ?? 'auto/improvements',
     max_retries: Number(getAutoSetting('max_retries') ?? '3'),
@@ -668,10 +654,6 @@ export function getAllAutoSettings(): AutoSettings {
     skip_designer_for_fixes: getAutoSetting('skip_designer_for_fixes') !== 'false',
     require_initial_prompt: getAutoSetting('require_initial_prompt') === 'true',
     max_designer_iterations: Number(getAutoSetting('max_designer_iterations') ?? '2'),
-    // v4 settings: prompt evolution
-    evolution_enabled: getAutoSetting('evolution_enabled') === 'true',
-    evolution_interval: Number(getAutoSetting('evolution_interval') ?? '10'),
-    evolution_window: Number(getAutoSetting('evolution_window') ?? '5'),
     // v5 settings: screen capture
     screenshot_dir: getAutoSetting('screenshot_dir') ?? '',
     // v7 settings: global prompt

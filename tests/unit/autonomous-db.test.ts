@@ -81,9 +81,6 @@ interface AutoSettings {
   target_project: string;
   test_command: string;
   max_cycles: number;
-  budget_usd: number;
-  discovery_interval: number;
-  review_interval: number;
   auto_commit: boolean;
   branch_name: string;
   max_retries: number;
@@ -268,9 +265,6 @@ function initTestDb(): Database.Database {
   insertSetting.run('target_project', '');
   insertSetting.run('test_command', 'npm test');
   insertSetting.run('max_cycles', '0');
-  insertSetting.run('budget_usd', '0');
-  insertSetting.run('discovery_interval', '10');
-  insertSetting.run('review_interval', '5');
   insertSetting.run('auto_commit', 'true');
   insertSetting.run('branch_name', 'auto/improvements');
   insertSetting.run('max_retries', '3');
@@ -427,9 +421,6 @@ function getAllAutoSettings(): AutoSettings {
     target_project: getAutoSetting('target_project') ?? '',
     test_command: getAutoSetting('test_command') ?? 'npm test',
     max_cycles: Number(getAutoSetting('max_cycles') ?? '0'),
-    budget_usd: Number(getAutoSetting('budget_usd') ?? '0'),
-    discovery_interval: Number(getAutoSetting('discovery_interval') ?? '10'),
-    review_interval: Number(getAutoSetting('review_interval') ?? '5'),
     auto_commit: getAutoSetting('auto_commit') !== 'false',
     branch_name: getAutoSetting('branch_name') ?? 'auto/improvements',
     max_retries: Number(getAutoSetting('max_retries') ?? '3'),
@@ -919,9 +910,6 @@ describe('Autonomous Mode v2 Database Operations', () => {
       expect(settings.target_project).toBe('');
       expect(settings.test_command).toBe('npm test');
       expect(settings.max_cycles).toBe(0);
-      expect(settings.budget_usd).toBe(0);
-      expect(settings.discovery_interval).toBe(10);
-      expect(settings.review_interval).toBe(5);
       expect(settings.auto_commit).toBe(true);
       expect(settings.branch_name).toBe('auto/improvements');
       expect(settings.max_retries).toBe(3);

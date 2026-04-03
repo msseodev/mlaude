@@ -7,7 +7,6 @@ export type FindingPriority = 'P0' | 'P1' | 'P2' | 'P3';
 export type FindingStatus = 'open' | 'in_progress' | 'resolved' | 'wont_fix' | 'duplicate';
 export type AgentRunStatus = 'running' | 'completed' | 'failed' | 'skipped';
 export type PipelineType = 'discovery' | 'fix' | 'test_fix';
-export type PromptVariantStatus = 'active' | 'evaluating' | 'retired' | 'original';
 export type CEORequestType = 'permission' | 'resource' | 'decision' | 'information';
 export type CEORequestStatus = 'pending' | 'approved' | 'rejected' | 'answered';
 
@@ -114,18 +113,6 @@ export interface AutoAgentRun {
   completed_at: string | null;
 }
 
-export interface PromptVariant {
-  id: string;
-  agent_id: string;
-  system_prompt: string;
-  parent_variant_id: string | null;
-  generation: number;
-  status: PromptVariantStatus;
-  avg_score: number | null;
-  cycles_evaluated: number;
-  created_at: string;
-}
-
 export interface CEORequest {
   id: string;
   session_id: string;
@@ -148,9 +135,6 @@ export interface AutoSettings {
   build_command: string;     // default: '' (empty = skip)
   lint_command: string;      // default: '' (empty = skip)
   max_cycles: number;        // 0 = unlimited
-  budget_usd: number;        // 0 = unlimited
-  discovery_interval: number; // every N cycles
-  review_interval: number;    // every N cycles
   auto_commit: boolean;
   branch_name: string;
   max_retries: number;       // per finding
@@ -159,9 +143,6 @@ export interface AutoSettings {
   skip_designer_for_fixes: boolean;
   require_initial_prompt: boolean;
   max_designer_iterations: number;
-  evolution_enabled: boolean;    // default: false
-  evolution_interval: number;    // default: 10
-  evolution_window: number;      // default: 5
   screenshot_dir: string;        // default: '' (auto-detect)
   global_prompt: string;         // default: '' (injected into all agents)
   parallel_mode: boolean;           // default: false
@@ -194,10 +175,6 @@ export type AutoSSEEventType =
   | 'agent_failed'
   | 'review_iteration'
   | 'user_prompt_added'
-  | 'evolution_started'
-  | 'evolution_completed'
-  | 'prompt_mutated'
-  | 'prompt_rollback'
   | 'parallel_group_start'
   | 'parallel_group_complete'
   | 'planning_review_start'

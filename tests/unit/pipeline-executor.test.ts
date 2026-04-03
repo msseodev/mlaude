@@ -98,6 +98,75 @@ describe('parseReviewOutput', () => {
     expect(result.approved).toBe(false);
     expect(result.feedback).toBe('Multiple problems found');
   });
+
+  it('correctly parses approved=false when team_messages JSON follows the review JSON', () => {
+    // This reproduces the real-world bug where greedy regex matched across
+    // both the review JSON and the team_messages JSON, causing JSON.parse to fail
+    // and defaulting to approved=true
+    const output = `Now let me read the full contents. All 6 review agents have completed.
+
+\`\`\`json
+{
+  "approved": false,
+  "issues": [
+    {
+      "severity": "critical",
+      "perspective": "correctness",
+      "file": "lib/providers/playback_provider.dart",
+      "lines": "326-329",
+      "description": "Count-in duration wrong for compound meters"
+    },
+    {
+      "severity": "major",
+      "perspective": "architecture",
+      "file": "lib/widgets/overlays.dart",
+      "lines": "217-220",
+      "description": "WidgetRef passed as constructor field"
+    }
+  ],
+  "summary": "1 critical, 1 major. Not approved."
+}
+\`\`\`
+
+\`\`\`json
+{
+  "team_messages": [
+    {
+      "category": "convention",
+      "content": "Never pass WidgetRef as a constructor field."
+    }
+  ]
+}
+\`\`\``;
+
+    const result = parseReviewOutput(output);
+    expect(result.approved).toBe(false);
+    expect(result.feedback).toContain('Count-in duration wrong');
+    expect(result.feedback).toContain('WidgetRef passed');
+  });
+
+  it('correctly parses approved=false with inline JSON (no code blocks) followed by team_messages', () => {
+    const output = `Review complete.
+{"approved": false, "issues": [{"severity": "critical", "description": "Bug"}], "summary": "Fix it"}
+{"team_messages": [{"category": "pattern", "content": "note"}]}`;
+
+    const result = parseReviewOutput(output);
+    expect(result.approved).toBe(false);
+    expect(result.feedback).toContain('Bug');
+  });
+
+  it('correctly parses approved=true with trailing team_messages', () => {
+    const output = `All good.
+\`\`\`json
+{"approved": true, "issues": [], "summary": "LGTM"}
+\`\`\`
+\`\`\`json
+{"team_messages": [{"category": "convention", "content": "good patterns"}]}
+\`\`\``;
+
+    const result = parseReviewOutput(output);
+    expect(result.approved).toBe(true);
+  });
 });
 
 describe('parseQAOutput', () => {

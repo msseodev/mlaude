@@ -12,7 +12,10 @@ export function useAutoStatus() {
       const res = await fetch('/api/auto/status');
       if (res.ok) {
         const data: AutoRunStatus = await res.json();
-        setStatus(data);
+        setStatus(prev => {
+          const next = JSON.stringify(data);
+          return JSON.stringify(prev) === next ? prev : data;
+        });
       }
     } catch {
       // ignore fetch errors

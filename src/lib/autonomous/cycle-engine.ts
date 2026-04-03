@@ -8,6 +8,7 @@ import { PipelineExecutor } from './pipeline-executor';
 import type { PipelineResult } from './pipeline-executor';
 import { WorkerPool } from './parallel-coordinator';
 import { Watchdog } from './watchdog';
+import { syncCommands } from './command-sync';
 import { summarizeAgentOutputs, generateCommitMessage } from './summarizer';
 import { runCommand } from './command-runner';
 import type { CommandResult } from './command-runner';
@@ -136,6 +137,13 @@ class CycleEngineImpl {
       throw new Error('Target project path is required');
     }
     const project = resolveTildePath(rawProject);
+
+    // Sync built-in commands to target project
+    try {
+      await syncCommands(project);
+    } catch (err) {
+      console.warn('[auto] Command sync failed:', err);
+    }
 
     // Create session
     const session = createAutoSession(project, undefined, initialPrompt);

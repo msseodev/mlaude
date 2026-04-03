@@ -22,6 +22,7 @@ A Claude Code automation tool that queues multiple prompts for sequential execut
 - **Prompt Evolution** — Automatic prompt mutation and scoring to improve agent performance over time
 - **Custom Agents** — Define additional agents with custom system prompts and pipeline ordering
 - **LLM Codebase Scanner** — Claude haiku analyzes project structure at session start
+- **Built-in Commands** — Auto-synced Claude Code commands (`/mlaude-project-review`: 8-perspective parallel analysis with synthesized report)
 
 ### Shared
 - **Automatic Rate Limit Handling** — Detects rate limits via exit codes, stream events, and text patterns; retries with exponential backoff (5min~40min)
@@ -87,6 +88,7 @@ src/
 │   │   ├── cycle-scorer.ts         # Cycle quality scoring
 │   │   ├── output-parser.ts        # Structured output parsing
 │   │   ├── summarizer.ts           # Output summarization & commit messages
+│   │   ├── command-sync.ts          # Sync built-in commands to target project
 │   │   ├── codebase-scanner.ts     # Project structure analysis (LLM-powered)
 │   │   ├── user-prompt-builder.ts  # User prompt assembly
 │   │   ├── db.ts                   # Autonomous mode DB layer

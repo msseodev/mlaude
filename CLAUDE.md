@@ -42,6 +42,7 @@ src/
 │   │   ├── prompt-evolver.ts       # Prompt mutation & scoring
 │   │   ├── evolution-db.ts         # Prompt evolution DB layer
 │   │   ├── git-manager.ts          # Git checkpoint/rollback
+│   │   ├── command-sync.ts          # Sync built-in commands to target project
 │   │   ├── state-manager.ts        # SESSION-STATE.md management
 │   │   ├── db.ts                   # Autonomous mode DB layer
 │   │   └── types.ts                # Autonomous mode types

@@ -12,11 +12,12 @@ const tocItems = [
   { id: 'planning-dev-review', label: '5. Planning-Development Review' },
   { id: 'code-review-loop', label: '6. Code Review Loop' },
   { id: 'ceo-escalation', label: '7. CEO Escalation' },
-  { id: 'self-evolution', label: '8. Prompt Self-Evolution' },
-  { id: 'scoring', label: '9. Scoring System (Cycle Scoring)' },
-  { id: 'settings-guide', label: '10. Settings Guide' },
-  { id: 'report-usage', label: '11. Using Reports' },
-  { id: 'faq', label: '12. FAQ' },
+  { id: 'commands', label: '8. Built-in Commands' },
+  { id: 'self-evolution', label: '9. Prompt Self-Evolution' },
+  { id: 'scoring', label: '10. Scoring System (Cycle Scoring)' },
+  { id: 'settings-guide', label: '11. Settings Guide' },
+  { id: 'report-usage', label: '12. Using Reports' },
+  { id: 'faq', label: '13. FAQ' },
 ];
 
 // --- FAQ data ---
@@ -432,9 +433,63 @@ Reviewer: Code review
             </div>
           </section>
 
-          {/* 8. Prompt Self-Evolution */}
+          {/* 8. Built-in Commands */}
           <section>
-            <SectionHeading id="self-evolution" number={8} title="Prompt Self-Evolution" />
+            <SectionHeading id="commands" number={8} title="Built-in Commands" />
+            <div className="space-y-4 text-sm leading-relaxed">
+              <p>
+                mlaude automatically syncs <strong className="text-zinc-100">built-in Claude Code commands</strong> to the target project&apos;s
+                <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-200 text-xs">.claude/commands/</code> directory when a session starts.
+                These commands can be invoked via <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-200 text-xs">/mlaude-command-name</code> in Claude Code.
+              </p>
+
+              <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
+                <h3 className="font-semibold text-zinc-100 mb-3">Available Commands</h3>
+                <div className="space-y-4">
+                  <div className="border border-zinc-600 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <code className="bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded text-sm font-bold">/mlaude-project-review</code>
+                    </div>
+                    <p className="text-zinc-300 mb-3">
+                      Comprehensive multi-perspective project analysis. Launches 8 parallel subagents that each analyze the project from a different angle,
+                      then synthesizes results into a unified report with prioritized recommendations.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { name: 'Code Quality', desc: 'Duplication, complexity, naming, dead code' },
+                        { name: 'Architecture', desc: 'Module separation, layer boundaries, patterns' },
+                        { name: 'UX/Usability', desc: 'UI flows, error UX, a11y, responsiveness' },
+                        { name: 'Performance', desc: 'Bundle size, rendering, DB queries, caching' },
+                        { name: 'Security', desc: 'OWASP Top 10, auth, input validation, secrets' },
+                        { name: 'Testing', desc: 'Coverage gaps, test quality, edge cases' },
+                        { name: 'DX', desc: 'Build time, docs, config, onboarding' },
+                        { name: 'Maintainability', desc: 'Tech debt, deps freshness, migration ease' },
+                      ].map((p) => (
+                        <div key={p.name} className="bg-zinc-900 rounded p-2 border border-zinc-700">
+                          <p className="text-zinc-100 text-xs font-semibold mb-0.5">{p.name}</p>
+                          <p className="text-zinc-500 text-xs">{p.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 bg-zinc-950 rounded p-3 border border-zinc-700">
+                      <p className="text-zinc-400 text-xs mb-1">Usage examples:</p>
+                      <pre className="text-zinc-300 text-xs font-mono">{`/mlaude-project-review
+/mlaude-project-review Focus on the auth module and API routes`}</pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <InfoBox>
+                Commands are synced automatically at session start. Files are prefixed with <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-blue-300 text-xs">mlaude-</code> to
+                avoid conflicts with the project&apos;s own commands. If the command content hasn&apos;t changed, the file is left untouched.
+              </InfoBox>
+            </div>
+          </section>
+
+          {/* 9. Prompt Self-Evolution */}
+          <section>
+            <SectionHeading id="self-evolution" number={9} title="Prompt Self-Evolution" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
                 This feature <strong className="text-zinc-100">automatically improves agent system prompts using AI</strong>.
@@ -478,9 +533,9 @@ Evaluate each agent's recent performance (evaluation window)
             </div>
           </section>
 
-          {/* 9. Scoring System */}
+          {/* 10. Scoring System */}
           <section>
-            <SectionHeading id="scoring" number={9} title="Scoring System (Cycle Scoring)" />
+            <SectionHeading id="scoring" number={10} title="Scoring System (Cycle Scoring)" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
                 Each cycle is assigned a <strong className="text-zinc-100">composite score of 0-100</strong>.
@@ -535,9 +590,9 @@ Evaluate each agent's recent performance (evaluation window)
             </div>
           </section>
 
-          {/* 10. Settings Guide */}
+          {/* 11. Settings Guide */}
           <section>
-            <SectionHeading id="settings-guide" number={10} title="Settings Guide" />
+            <SectionHeading id="settings-guide" number={11} title="Settings Guide" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
                 On the Settings page (<code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-200 text-xs">/auto/settings</code>),
@@ -572,9 +627,9 @@ Evaluate each agent's recent performance (evaluation window)
             </div>
           </section>
 
-          {/* 11. Using Reports */}
+          {/* 12. Using Reports */}
           <section>
-            <SectionHeading id="report-usage" number={11} title="Using Reports" />
+            <SectionHeading id="report-usage" number={12} title="Using Reports" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
                 The Report page (<code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-200 text-xs">/auto/report</code>) is
@@ -607,9 +662,9 @@ Evaluate each agent's recent performance (evaluation window)
             </div>
           </section>
 
-          {/* 12. FAQ */}
+          {/* 13. FAQ */}
           <section>
-            <SectionHeading id="faq" number={12} title="FAQ" />
+            <SectionHeading id="faq" number={13} title="FAQ" />
             <div className="space-y-3">
               {faqItems.map((item, i) => (
                 <FAQItem key={i} question={item.q} answer={item.a} />

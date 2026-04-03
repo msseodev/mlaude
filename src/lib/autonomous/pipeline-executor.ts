@@ -67,7 +67,7 @@ interface FeedbackLoopResult {
 }
 
 // Planning agents — receive screen frames and initial_prompt
-export const PLANNER_AGENT_NAMES = new Set(['product_designer', 'ux_planner', 'tech_planner', 'biz_planner', 'music_domain_planner', 'planning_moderator', 'smoke_tester']);
+export const PLANNER_AGENT_NAMES = new Set(['product_designer', 'ux_planner', 'tech_planner', 'analyzer', 'biz_planner', 'music_domain_planner', 'planning_moderator', 'smoke_tester']);
 export function isPlannerAgent(agent: AutoAgent): boolean {
   return PLANNER_AGENT_NAMES.has(agent.name);
 }

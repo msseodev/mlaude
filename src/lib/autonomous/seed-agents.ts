@@ -507,9 +507,9 @@ After writing the spec file, you MUST also output in the following JSON format:
 }
 
 ### Team Messages
-중요한 아키텍처 결정을 팀에 공유하세요:
+Share important architecture decisions with the team:
 \`\`\`json
-{ "team_messages": [{ "category": "architecture", "content": "설명" }] }
+{ "team_messages": [{ "category": "architecture", "content": "description" }] }
 \`\`\``,
     pipeline_order: 0.5,
   },
@@ -556,9 +556,9 @@ The Planning Moderator (or Product Designer) will receive this feedback and revi
 Do NOT output a BLOCKER if you can reasonably implement the feature. Only use it for genuine implementation blockers related to the spec.
 
 ### Team Messages
-구현 중 발견한 주요 패턴이나 주의사항이 있으면 팀에 공유하세요:
+Share notable patterns or caveats discovered during implementation:
 \`\`\`json
-{ "team_messages": [{ "category": "pattern", "content": "설명" }] }
+{ "team_messages": [{ "category": "pattern", "content": "description" }] }
 \`\`\``,
     pipeline_order: 1,
   },
@@ -690,9 +690,9 @@ You MUST output in the following JSON format:
 - approved: false + critical/major issues → Developer will re-run with your feedback
 
 ### Team Messages
-반복적으로 발견되�� 코딩 컨벤션이나 패턴이 있으면 팀에 ���유하세요:
+Share recurring coding conventions or patterns with the team:
 \`\`\`json
-{ "team_messages": [{ "category": "convention", "content": "설명" }] }
+{ "team_messages": [{ "category": "convention", "content": "description" }] }
 \`\`\``,
     pipeline_order: 2,
   },

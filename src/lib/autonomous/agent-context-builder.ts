@@ -1,4 +1,5 @@
 import type { AutoAgent, AutoFinding, FailureHistoryEntry, CEORequest, PipelineType } from './types';
+import { getEpicFindings } from './db';
 
 export interface StructuredAgentOutput {
   agentName: string;
@@ -110,6 +111,24 @@ export function buildAgentContext(agent: AutoAgent, ctx: AgentContext): string {
           }
         }
       } catch { /* ignore malformed history */ }
+    }
+
+    // Epic context: show sibling findings and progress
+    if (ctx.finding.epic_id) {
+      const siblings = getEpicFindings(ctx.finding.epic_id);
+      if (siblings.length > 1) {
+        findingParts.push('');
+        findingParts.push(`[Epic Progress] This is step ${ctx.finding.epic_order ?? '?'} of ${siblings.length} in a multi-cycle feature:`);
+        for (const sib of siblings) {
+          const mark = sib.status === 'resolved' ? 'done' : sib.id === ctx.finding.id ? 'current' : 'pending';
+          findingParts.push(`  ${mark === 'done' ? '[x]' : mark === 'current' ? '[>]' : '[ ]'} ${sib.epic_order ?? '?'}. ${sib.title}`);
+        }
+        const resolved = siblings.filter(s => s.status === 'resolved');
+        if (resolved.length > 0) {
+          findingParts.push('');
+          findingParts.push('Previously completed steps provide context for this implementation.');
+        }
+      }
     }
 
     parts.push(findingParts.join('\n'));

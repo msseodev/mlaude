@@ -325,6 +325,9 @@ export default function FindingsPage() {
                     Title
                   </th>
                   <th className="px-6 py-3 font-medium text-gray-600">
+                    Epic
+                  </th>
+                  <th className="px-6 py-3 font-medium text-gray-600">
                     File Path
                   </th>
                   <th className="px-6 py-3 font-medium text-gray-600">
@@ -356,6 +359,20 @@ export default function FindingsPage() {
                       >
                         {finding.title}
                       </button>
+                    </td>
+                    <td className="px-6 py-3">
+                      {finding.epic_id ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
+                          {finding.epic_order != null ? `#${finding.epic_order}` : ''}
+                          {(() => {
+                            const siblings = sortedFindings.filter(f => f.epic_id === finding.epic_id);
+                            const resolved = siblings.filter(f => f.status === 'resolved').length;
+                            return ` (${resolved}/${siblings.length})`;
+                          })()}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-3 font-mono text-xs text-gray-500">
                       {finding.file_path ?? '-'}
@@ -445,6 +462,19 @@ export default function FindingsPage() {
                   {selectedFinding.retry_count}/{selectedFinding.max_retries}
                 </span>
               </div>
+              {selectedFinding.epic_id && (
+                <div className="col-span-2">
+                  <span className="text-gray-500">Epic:</span>{' '}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
+                    Step {selectedFinding.epic_order ?? '?'}
+                    {(() => {
+                      const siblings = findings.filter(f => f.epic_id === selectedFinding.epic_id);
+                      const resolved = siblings.filter(f => f.status === 'resolved').length;
+                      return ` of ${siblings.length} (${resolved} done)`;
+                    })()}
+                  </span>
+                </div>
+              )}
               {selectedFinding.file_path && (
                 <div className="col-span-2">
                   <span className="text-gray-500">File:</span>{' '}

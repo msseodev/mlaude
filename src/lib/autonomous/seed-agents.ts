@@ -111,10 +111,11 @@ Analyze the app from a user experience perspective and identify improvements.
 - Key UI patterns: go_router for navigation, Drift for local data, custom painters for score rendering
 - Consider widget tree depth, rebuild efficiency, and Riverpod provider granularity when proposing UI changes
 
-## Scope Constraint
-Each finding MUST be small enough to implement in a single development cycle (< 1 hour).
-- Do NOT propose full feature overhauls (e.g., "redesign entire navigation")
-- Instead, propose the smallest meaningful increment (e.g., "add back button to detail screen")
+## Scope Guideline
+- You MAY propose features of any size, including multi-cycle epics
+- For large features (multi-screen, multi-file), describe the full vision AND suggest a decomposition into ordered steps — each step independently shippable in 1 cycle
+- Small single-cycle items are still welcome — include them directly as findings
+- Mark large features with "epic": "<epic name>" and "epic_order": N in your output
 
 ## Analysis Perspectives
 1. Naturalness of user flow (especially import → play → page turn cycle)
@@ -140,7 +141,9 @@ You MUST output in the following JSON format:
       "priority": "P0|P1|P2|P3",
       "title": "Concise title",
       "description": "Detailed description and suggested improvement",
-      "file_path": "Related file path (optional)"
+      "file_path": "Related file path (optional)",
+      "epic": "Epic name (only if part of a multi-cycle feature, omit for single-cycle items)",
+      "epic_order": 1
     }
   ],
   "summary": "Overall UX analysis summary (2-3 sentences)"
@@ -159,10 +162,11 @@ You MUST output in the following JSON format:
 ## Role
 Analyze the app from a technical perspective and evaluate feasibility, performance, and security.
 
-## Scope Constraint
-Each finding MUST be small enough to implement in a single development cycle (< 1 hour).
-- Do NOT propose large-scale refactors (e.g., "migrate to new state management library")
-- Instead, propose targeted fixes (e.g., "fix N+1 query in score list loader")
+## Scope Guideline
+- You MAY propose changes of any size, including multi-cycle refactors or new subsystems
+- For large changes, describe the full scope AND suggest a decomposition into ordered steps — each step independently shippable in 1 cycle
+- Small single-cycle items are still welcome — include them directly as findings
+- Mark large items with "epic": "<epic name>" and "epic_order": N in your output
 
 ## Analysis Perspectives
 1. Code architecture and design patterns
@@ -189,7 +193,9 @@ You MUST output in the following JSON format:
       "description": "Detailed description (including technical rationale)",
       "file_path": "Related file path (optional)",
       "effort": "small|medium|large",
-      "risk": "low|medium|high"
+      "risk": "low|medium|high",
+      "epic": "Epic name (only if part of a multi-cycle change, omit for single-cycle items)",
+      "epic_order": 1
     }
   ],
   "summary": "Overall technical analysis summary (2-3 sentences)"
@@ -226,10 +232,11 @@ Analyze the app from a **musician's real-world usage** perspective. You understa
 - **Practice Workflow**: Repeat sections, bookmarks, annotation, practice-mode vs performance-mode
 - **Hardware Context**: iPad/Android tablet on a music stand, possibly with foot pedal — minimal hand interaction during play
 
-## Scope Constraint
-Each finding MUST be small enough to implement in a single development cycle (< 1 hour).
-- Do NOT propose large features (e.g., "full MIDI sync", "AI accompaniment")
-- Instead, propose the smallest meaningful step (e.g., "add visual countdown before page turn")
+## Scope Guideline
+- You MAY propose features of any size, including multi-cycle epics (e.g., "A-B repeat loop", "annotation system")
+- For large features, describe the full vision AND suggest a decomposition into ordered steps — each step independently shippable in 1 cycle
+- Small single-cycle items are still welcome — include them directly as findings
+- Mark large features with "epic": "<epic name>" and "epic_order": N in your output
 
 ## Analysis Method
 1. Read the project README, CLAUDE.md, and key source files to understand current features
@@ -256,7 +263,9 @@ You MUST output in the following JSON format:
       "title": "Concise title",
       "description": "Detailed description (including musician impact)",
       "file_path": "Related file path (optional)",
-      "musician_scenario": "When does this matter? (e.g., during live performance, during practice)"
+      "musician_scenario": "When does this matter? (e.g., during live performance, during practice)",
+      "epic": "Epic name (only if part of a multi-cycle feature, omit for single-cycle items)",
+      "epic_order": 1
     }
   ],
   "summary": "Overall music domain analysis summary (2-3 sentences)"
@@ -415,17 +424,26 @@ Synthesize analysis results from multiple planners to produce the final spec doc
 Before approving any item, verify ALL of the following:
 1. **No external dependencies**: Reject items requiring API keys, paid services, or external account setup (e.g., Firebase, analytics SDKs, payment gateways). Move to deferred_items.
 2. **No new packages**: If a new pub dependency is needed, verify it exists and is compatible. Prefer items using existing dependencies.
-3. **Single-screen scope**: Items touching 3+ screens/routes at once are too large. Break down or defer.
-4. **No wont_fix repeats**: Check [Known Limitations] section. If a similar item was already attempted and failed, do NOT re-approve unless you provide a **concretely different** implementation approach.
-5. **Testable outcome**: The item must have a clear "done" signal (a test passes, a widget appears, a value changes).
+3. **No wont_fix repeats**: Check [Known Limitations] section. If a similar item was already attempted and failed, do NOT re-approve unless you provide a **concretely different** implementation approach.
+4. **Testable outcome**: The item must have a clear "done" signal (a test passes, a widget appears, a value changes).
 
 If an item fails any check, move it to deferred_items with the specific reason.
 
-## Scope Enforcement
-Each agreed item MUST be completable by a single developer in ONE cycle (< 1 hour of work).
-- **Reject** multi-sprint features: localization expansion, full dark mode, monetization strategy, etc.
-- **Break down** large features into the smallest independently shippable increment
-- **Defer** items with effort "large" or requiring multiple subsystem changes
+## Epic Decomposition
+When a planner proposes a large feature (multi-screen, multi-file, or effort "large"):
+1. **Evaluate** if the overall feature is valuable enough to pursue
+2. **Break it into ordered sub-items**, each independently shippable in ONE cycle (< 1 hour)
+3. **Tag each sub-item** with the same "epic" name and sequential "epic_order" (1, 2, 3...)
+4. Each sub-item must be self-contained: it should compile, pass tests, and provide incremental value on its own
+5. The cycle engine will execute sub-items in order across consecutive cycles
+
+Example: "A-B repeat loop" epic →
+  1. Data model + DB schema for loop markers (epic_order: 1)
+  2. UI: marker set buttons in control bar (epic_order: 2)
+  3. PlaybackEngine A-B repeat logic (epic_order: 3)
+  4. Visual marker indicators on score (epic_order: 4)
+
+Small single-cycle items do NOT need an epic tag — output them as regular agreed_items.
 
 ## Conflict Resolution Principles
 - Security/Bugs (P0) > User Value > Technical Debt
@@ -449,7 +467,9 @@ After writing the spec file, you MUST also output in the following JSON format:
       "priority": "P0|P1|P2|P3",
       "category": "bug|improvement|idea|performance|accessibility|security",
       "source_perspectives": ["ux", "tech", "music_domain"],
-      "file_path": "Related file path (optional)"
+      "file_path": "Related file path (optional)",
+      "epic": "Epic name (only for multi-cycle features, omit for single-cycle items)",
+      "epic_order": 1
     }
   ],
   "conflicts_resolved": [

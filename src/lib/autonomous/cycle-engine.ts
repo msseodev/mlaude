@@ -603,6 +603,8 @@ class CycleEngineImpl {
           title: f.title,
           description: f.description,
           file_path: f.file_path,
+          epic_id: f.epic_id,
+          epic_order: f.epic_order,
         });
         createdFindings.push(created);
         this.emit({

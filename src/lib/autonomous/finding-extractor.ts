@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import type { ExtractedFinding, FindingCategory, FindingPriority, AutoFinding } from './types';
 
 const VALID_CATEGORIES: FindingCategory[] = ['bug', 'improvement', 'idea', 'test_failure', 'performance', 'accessibility', 'security'];
@@ -37,8 +38,21 @@ export class FindingExtractor {
         rawFindings = [];
       }
 
+      // Assign epic IDs: items sharing the same "epic" string get the same UUID
+      const epicNameToId = new Map<string, string>();
       const validated = rawFindings
-        .map((f: Record<string, unknown>) => this.validateFinding(f))
+        .map((f: Record<string, unknown>) => {
+          const finding = this.validateFinding(f);
+          if (finding && f.epic && typeof f.epic === 'string') {
+            const epicName = f.epic.trim();
+            if (!epicNameToId.has(epicName)) {
+              epicNameToId.set(epicName, uuidv4());
+            }
+            finding.epic_id = epicNameToId.get(epicName)!;
+            finding.epic_order = typeof f.epic_order === 'number' ? f.epic_order : null;
+          }
+          return finding;
+        })
         .filter((f: ExtractedFinding | null): f is ExtractedFinding => f !== null);
 
       const accepted: ExtractedFinding[] = [];

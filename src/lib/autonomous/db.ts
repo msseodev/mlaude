@@ -268,6 +268,15 @@ export function initAutoTables(): void {
     db.exec('ALTER TABLE auto_findings ADD COLUMN resolution_summary TEXT');
   } catch { /* Column already exists */ }
 
+  // v11: Add epic support to findings
+  try {
+    db.exec('ALTER TABLE auto_findings ADD COLUMN epic_id TEXT');
+  } catch { /* Column already exists */ }
+  try {
+    db.exec('ALTER TABLE auto_findings ADD COLUMN epic_order INTEGER');
+  } catch { /* Column already exists */ }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_auto_findings_epic_id ON auto_findings(epic_id)');
+
   // v6: CEO escalation requests table
   db.exec(`
     CREATE TABLE IF NOT EXISTS auto_ceo_requests (
@@ -456,6 +465,8 @@ export function createAutoFinding(data: {
   file_path?: string | null;
   max_retries?: number;
   project_path?: string;
+  epic_id?: string | null;
+  epic_order?: number | null;
 }): AutoFinding {
   const db = getDb();
   const id = uuidv4();
@@ -469,8 +480,8 @@ export function createAutoFinding(data: {
   }
 
   db.prepare(
-    'INSERT INTO auto_findings (id, session_id, category, priority, title, description, file_path, status, retry_count, max_retries, project_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(id, data.session_id, data.category, data.priority ?? 'P2', data.title, data.description, data.file_path ?? null, 'open', 0, data.max_retries ?? 3, projectPath, now, now);
+    'INSERT INTO auto_findings (id, session_id, category, priority, title, description, file_path, status, retry_count, max_retries, project_path, epic_id, epic_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(id, data.session_id, data.category, data.priority ?? 'P2', data.title, data.description, data.file_path ?? null, 'open', 0, data.max_retries ?? 3, projectPath, data.epic_id ?? null, data.epic_order ?? null, now, now);
 
   return getAutoFinding(id)!;
 }
@@ -559,21 +570,44 @@ export function getAutoFindingCounts(sessionId: string): { total: number; open: 
 
 export function getOpenAutoFindings(): AutoFinding[] {
   const db = getDb();
-  return db.prepare(
-    "SELECT * FROM auto_findings WHERE status = 'open' ORDER BY priority ASC, created_at ASC"
-  ).all() as AutoFinding[];
+  // Prioritize in-progress epics: if an epic has resolved siblings, pick the next sub-finding first
+  return db.prepare(`
+    SELECT f.*,
+      CASE
+        WHEN f.epic_id IS NOT NULL AND EXISTS (
+          SELECT 1 FROM auto_findings sib
+          WHERE sib.epic_id = f.epic_id AND sib.status = 'resolved'
+        ) THEN 0
+        ELSE 1
+      END AS epic_priority
+    FROM auto_findings f
+    WHERE f.status = 'open'
+    ORDER BY epic_priority ASC, f.epic_order ASC, f.priority ASC, f.created_at ASC
+  `).all() as AutoFinding[];
 }
 
 /**
  * Atomically pick and claim the next actionable finding.
  * Uses a SQLite transaction to prevent multiple workers from picking the same finding.
+ * Prioritizes in-progress epics (epics that have some resolved sub-findings).
  */
 export function pickAndClaimNextFinding(): AutoFinding | null {
   const db = getDb();
   const txn = db.transaction(() => {
-    const finding = db.prepare(
-      "SELECT * FROM auto_findings WHERE status = 'open' AND retry_count < max_retries ORDER BY priority ASC, created_at ASC LIMIT 1"
-    ).get() as AutoFinding | undefined;
+    const finding = db.prepare(`
+      SELECT f.*,
+        CASE
+          WHEN f.epic_id IS NOT NULL AND EXISTS (
+            SELECT 1 FROM auto_findings sib
+            WHERE sib.epic_id = f.epic_id AND sib.status = 'resolved'
+          ) THEN 0
+          ELSE 1
+        END AS epic_priority
+      FROM auto_findings f
+      WHERE f.status = 'open' AND f.retry_count < f.max_retries
+      ORDER BY epic_priority ASC, f.epic_order ASC, f.priority ASC, f.created_at ASC
+      LIMIT 1
+    `).get() as AutoFinding | undefined;
     if (!finding) return null;
     const now = new Date().toISOString();
     db.prepare(
@@ -582,6 +616,16 @@ export function pickAndClaimNextFinding(): AutoFinding | null {
     return { ...finding, status: 'in_progress' as const, updated_at: now };
   });
   return txn();
+}
+
+/**
+ * Get all sub-findings for an epic, ordered by epic_order.
+ */
+export function getEpicFindings(epicId: string): AutoFinding[] {
+  const db = getDb();
+  return db.prepare(
+    'SELECT * FROM auto_findings WHERE epic_id = ? ORDER BY epic_order ASC'
+  ).all(epicId) as AutoFinding[];
 }
 
 // --- Settings ---

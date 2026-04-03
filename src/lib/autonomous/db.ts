@@ -287,6 +287,7 @@ export function initAutoTables(): void {
       type TEXT NOT NULL DEFAULT 'information',
       title TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
+      metadata TEXT,
       blocking INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'pending',
       ceo_response TEXT,
@@ -295,6 +296,11 @@ export function initAutoTables(): void {
       FOREIGN KEY (session_id) REFERENCES auto_sessions(id) ON DELETE CASCADE
     );
   `);
+
+  // v12: Add metadata column to CEO requests (for deferred finding blueprints)
+  try {
+    db.exec('ALTER TABLE auto_ceo_requests ADD COLUMN metadata TEXT');
+  } catch { /* Column already exists */ }
 
 }
 
@@ -821,13 +827,14 @@ export function createCEORequest(data: {
   title: string;
   description: string;
   blocking?: boolean;
+  metadata?: string | null;
 }): CEORequest {
   const db = getDb();
   const id = uuidv4();
   const now = new Date().toISOString();
   db.prepare(
-    'INSERT INTO auto_ceo_requests (id, session_id, cycle_id, from_agent, type, title, description, blocking, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(id, data.session_id, data.cycle_id ?? null, data.from_agent, data.type, data.title, data.description, data.blocking ? 1 : 0, 'pending', now);
+    'INSERT INTO auto_ceo_requests (id, session_id, cycle_id, from_agent, type, title, description, metadata, blocking, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(id, data.session_id, data.cycle_id ?? null, data.from_agent, data.type, data.title, data.description, data.metadata ?? null, data.blocking ? 1 : 0, 'pending', now);
   return db.prepare('SELECT * FROM auto_ceo_requests WHERE id = ?').get(id) as CEORequest;
 }
 

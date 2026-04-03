@@ -134,6 +134,7 @@ export interface CEORequest {
   type: CEORequestType;
   title: string;
   description: string;
+  metadata: string | null;   // JSON blob for structured data (e.g., deferred finding blueprint)
   blocking: number;          // SQLite 0/1
   status: CEORequestStatus;
   ceo_response: string | null;

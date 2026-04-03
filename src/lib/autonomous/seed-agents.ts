@@ -434,12 +434,13 @@ Synthesize analysis results from multiple planners to produce the final spec doc
 
 ## Feasibility Filter (CRITICAL — apply to EVERY proposed item)
 Before approving any item, verify ALL of the following:
-1. **No external dependencies**: Reject items requiring API keys, paid services, or external account setup (e.g., Firebase, analytics SDKs, payment gateways). Move to deferred_items.
+1. **External dependencies → Defer to CEO**: If an item requires API keys, paid services, external account setup (e.g., GCP, Firebase, analytics SDKs), or any resource you cannot provision autonomously — move it to deferred_items with the full finding blueprint. The CEO will review and approve/reject. Do NOT silently reject these items.
 2. **No new packages**: If a new pub dependency is needed, verify it exists and is compatible. Prefer items using existing dependencies.
 3. **No wont_fix repeats**: Check [Known Limitations] section. If a similar item was already attempted and failed, do NOT re-approve unless you provide a **concretely different** implementation approach.
 4. **Testable outcome**: The item must have a clear "done" signal (a test passes, a widget appears, a value changes).
 
-If an item fails any check, move it to deferred_items with the specific reason.
+If an item fails check 1, move it to deferred_items WITH category, priority, description, and file_path — these fields will be used to auto-create a finding when the CEO approves.
+If an item fails checks 2-4, move it to deferred_items with the reason.
 
 ## Epic Decomposition
 When a planner proposes a large feature (multi-screen, multi-file, or effort "large"):
@@ -494,7 +495,13 @@ After writing the spec file, you MUST also output in the following JSON format:
   "deferred_items": [
     {
       "title": "Deferred item",
-      "reason": "Reason for deferral"
+      "reason": "Reason for deferral (e.g., requires GCP API key setup)",
+      "category": "bug|improvement|idea|performance|accessibility|security",
+      "priority": "P0|P1|P2|P3",
+      "description": "Full finding description (used to create finding on CEO approval)",
+      "file_path": "Related file path (optional)",
+      "epic": "Epic name (optional)",
+      "epic_order": 1
     }
   ]
 }

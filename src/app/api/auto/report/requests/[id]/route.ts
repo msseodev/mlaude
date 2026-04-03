@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { respondToCEORequest, initAutoTables } from '@/lib/autonomous/db';
+import { respondToCEORequest, getCEORequest, createAutoFinding, initAutoTables } from '@/lib/autonomous/db';
 import type { CEORequestStatus } from '@/lib/autonomous/types';
 
 const VALID_STATUSES = new Set(['approved', 'rejected', 'answered']);
@@ -29,6 +29,9 @@ export async function PATCH(
       );
     }
 
+    // Check if this request has a deferred finding blueprint before updating
+    const existing = getCEORequest(id);
+
     const updated = respondToCEORequest(id, {
       status: status as CEORequestStatus,
       ceo_response: response,
@@ -38,7 +41,27 @@ export async function PATCH(
       return NextResponse.json({ error: 'Request not found' }, { status: 404 });
     }
 
-    return NextResponse.json(updated);
+    // On approval, auto-create finding from deferred blueprint
+    let createdFinding = null;
+    if (status === 'approved' && existing?.metadata) {
+      try {
+        const blueprint = JSON.parse(existing.metadata);
+        if (blueprint.title) {
+          createdFinding = createAutoFinding({
+            session_id: existing.session_id,
+            category: blueprint.category || 'improvement',
+            priority: blueprint.priority || 'P2',
+            title: blueprint.title,
+            description: blueprint.description || '',
+            file_path: blueprint.file_path || null,
+            epic_id: blueprint.epic_id || null,
+            epic_order: blueprint.epic_order ?? null,
+          });
+        }
+      } catch { /* ignore malformed metadata */ }
+    }
+
+    return NextResponse.json({ ...updated, created_finding: createdFinding });
   } catch {
     return NextResponse.json(
       { error: 'Failed to respond to CEO request' },

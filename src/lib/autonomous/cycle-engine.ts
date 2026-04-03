@@ -37,6 +37,7 @@ import {
   createAutoUserPrompt,
   getAutoUserPrompts,
   getAutoAgentRunsByCycle,
+  createCEORequest,
 } from './db';
 import { FindingExtractor } from './finding-extractor';
 import { getCrossSessionFindings } from './memory-db';
@@ -613,6 +614,59 @@ class CycleEngineImpl {
           timestamp: now,
         });
       }
+    }
+
+    // Extract deferred_items from moderator output → CEO requests
+    if (designerRun?.output) {
+      try {
+        const jsonMatch = designerRun.output.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+        const jsonStr = jsonMatch?.[1] || designerRun.output;
+        // Find balanced JSON containing deferred_items
+        const deferredIdx = jsonStr.indexOf('"deferred_items"');
+        if (deferredIdx !== -1) {
+          const openBrace = jsonStr.lastIndexOf('{', deferredIdx);
+          if (openBrace !== -1) {
+            let depth = 0;
+            let end = openBrace;
+            for (let i = openBrace; i < jsonStr.length; i++) {
+              if (jsonStr[i] === '{') depth++;
+              if (jsonStr[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+            }
+            const parsed = JSON.parse(jsonStr.slice(openBrace, end + 1));
+            if (Array.isArray(parsed.deferred_items)) {
+              for (const item of parsed.deferred_items) {
+                if (!item.title || typeof item.title !== 'string') continue;
+                const reason = typeof item.reason === 'string' ? item.reason : 'Deferred by Planning Moderator';
+                // Store finding blueprint in metadata for auto-creation on CEO approval
+                const findingBlueprint = {
+                  category: item.category || 'improvement',
+                  priority: item.priority || 'P2',
+                  title: item.title,
+                  description: item.description || reason,
+                  file_path: item.file_path || null,
+                  epic: item.epic || null,
+                  epic_order: item.epic_order ?? null,
+                };
+                createCEORequest({
+                  session_id: this.currentSessionId!,
+                  cycle_id: cycle.id,
+                  from_agent: 'Planning Moderator',
+                  type: 'decision',
+                  title: `[Deferred] ${item.title}`,
+                  description: reason,
+                  metadata: JSON.stringify(findingBlueprint),
+                  blocking: false,
+                });
+                this.emit({
+                  type: 'ceo_request_created',
+                  data: { title: `[Deferred] ${item.title}`, reason },
+                  timestamp: now,
+                });
+              }
+            }
+          }
+        }
+      } catch { /* ignore parse failures */ }
     }
 
     // Handle QA failure — reuse existing open test_failure finding or create one

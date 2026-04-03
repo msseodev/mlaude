@@ -10,7 +10,7 @@ A Claude Code automation tool that queues multiple prompts for sequential execut
 - **Sequential Auto-Execution** — Execute queued prompts one by one via Claude Code CLI
 
 ### Autonomous Mode (Multi-Agent Pipeline)
-- **Agent Pipeline** — UX/Tech/Biz Planners (parallel) → Planning Moderator → Developer → Reviewer → QA Engineer
+- **Agent Pipeline** — UX/Tech Planners + Smoke Tester (parallel) → Planning Moderator → Developer → Reviewer → QA Engineer
 - **Pipeline Branching** — discovery/fix/test_fix pipelines (skip unnecessary agents per cycle type)
 - **Test Engineer** — Specialized agent for Flutter/Dart test fixes
 - **Parallel Processing** — Worker pool processes multiple findings simultaneously via git worktrees
@@ -306,7 +306,7 @@ curl -X POST http://localhost:51793/api/run \
 
 Auto mode runs an autonomous multi-agent pipeline in cycles against a target project. The default pipeline is:
 
-**UX Planner + Tech Planner + Biz Planner** (parallel) → **Planning Moderator** → **Developer** → **Reviewer** → **QA Engineer**
+**UX Planner + Tech Planner + App Smoke Tester** (parallel) → **Planning Moderator** → **Developer** → **Reviewer** → **QA Engineer**
 
 - **Pipeline Types**: discovery (full) | fix (Dev→Review→QA) | test_fix (TestEng→QA)
 - **Parallel Worker Pool** — N independent workers process findings simultaneously using git worktrees

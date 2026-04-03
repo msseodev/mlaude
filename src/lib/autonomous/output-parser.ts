@@ -73,10 +73,12 @@ function generateSummary(
     return summarizeModerator(structuredData, rawOutput);
   }
 
-  // Planner agents (UX, Tech, Biz)
+  // Planner agents (UX, Tech, Biz, Music Domain, Smoke Tester)
   if (nameLower === 'ux_planner' || nameLower === 'ux planner'
     || nameLower === 'tech_planner' || nameLower === 'tech planner'
-    || nameLower === 'biz_planner' || nameLower === 'biz planner') {
+    || nameLower === 'biz_planner' || nameLower === 'biz planner'
+    || nameLower === 'music_domain_planner' || nameLower === 'music domain planner'
+    || nameLower === 'smoke_tester' || nameLower === 'smoke tester') {
     return summarizePlanner(structuredData, rawOutput);
   }
 

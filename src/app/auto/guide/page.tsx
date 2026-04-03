@@ -185,13 +185,13 @@ export default function AutoGuidePage() {
               {/* Pipeline diagram */}
               <div className="bg-zinc-950 rounded-lg p-5 border border-zinc-700 font-mono text-xs overflow-x-auto">
                 <pre className="text-zinc-300">{`┌──────────────┐
-│  UX Planner  │─┐
-└──────────────┘  │
-┌──────────────┐  │                  ┌────────────────────┐    ┌───────────┐    ┌──────────┐    ┌────────────┐
-│ Tech Planner │─┼─ Parallel ───→  │ Planning Moderator │──→│ Developer │──→│ Reviewer │──→│ QA Engineer│
-└──────────────┘  │                  └────────────────────┘    └───────────┘    └──────────┘    └────────────┘
-┌──────────────┐  │
-│ Biz Planner  │─┘
+│  UX Planner  │──┐
+└──────────────┘   │
+┌──────────────┐   │                  ┌────────────────────┐    ┌───────────┐    ┌──────────┐    ┌────────────┐
+│ Tech Planner │──┼── Parallel ───→ │ Planning Moderator │──→│ Developer │──→│ Reviewer │──→│ QA Engineer│
+└──────────────┘   │                  └────────────────────┘    └───────────┘    └──────────┘    └────────────┘
+┌──────────────┐   │
+│Smoke Tester  │──┘   (mobile-mcp runtime validation)
 └──────────────┘`}</pre>
               </div>
 
@@ -210,8 +210,12 @@ export default function AutoGuidePage() {
                   <p className="text-zinc-400">Analyzes business impact, user value, and priorities. Makes decisions based on ROI and strategic value.</p>
                 </div>
                 <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
+                  <h3 className="font-semibold text-zinc-100 mb-1">App Smoke Tester</h3>
+                  <p className="text-zinc-400">Launches the app via mobile-mcp and autonomously navigates every screen to verify basic functionality works. Finds crashes, broken navigation, and non-rendering screens.</p>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
                   <h3 className="font-semibold text-zinc-100 mb-1">Planning Moderator</h3>
-                  <p className="text-zinc-400">Synthesizes opinions from the 3 planners, resolves conflicts, and produces the final specification.</p>
+                  <p className="text-zinc-400">Synthesizes opinions from all planners and smoke test results, resolves conflicts, and produces the final specification.</p>
                 </div>
                 <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
                   <h3 className="font-semibold text-zinc-100 mb-1">Developer</h3>

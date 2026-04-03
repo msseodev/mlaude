@@ -6,10 +6,14 @@ import {
   updateAutoAgentRun,
   getAllAutoSettings,
   getAutoUserPrompts,
+  getAutoFindings,
+  createAutoFinding,
   getAutoCycle,
   getCEORequests,
   createCEORequest,
 } from './db';
+import { FindingExtractor } from './finding-extractor';
+import { getCrossSessionFindings } from './memory-db';
 import { GitManager } from './git-manager';
 import { StateManager } from './state-manager';
 import { buildAgentContext, StructuredAgentOutput } from './agent-context-builder';
@@ -36,6 +40,7 @@ export interface PipelineResult {
   totalDurationMs: number;
   qaResult?: { passed: boolean; testOutput: string };
   blockerInfo?: { agentName: string; reason: string };
+  createdFindings?: Array<{ priority: string; title: string; category: string }>;
   abortedByRateLimit?: boolean;
   rateLimitInfo?: RateLimitInfo;
   abortedByAuthError?: boolean;
@@ -135,6 +140,9 @@ export class PipelineExecutor {
 
     // Fetch existing CEO requests for context
     const ceoRequests = getCEORequests(this.session.id);
+
+    // Findings created from moderator/designer output (populated immediately on agent completion)
+    const createdFindings: Array<{ priority: string; title: string; category: string }> = [];
 
     // Build execution plan with parallel group support
     const executionSteps = this.buildExecutionPlan(agents);
@@ -411,6 +419,81 @@ export class PipelineExecutor {
           }
         }
 
+        // Extract findings immediately when moderator/designer completes
+        if ((agent.name === 'planning_moderator' || agent.name === 'product_designer') && result.agentRun.status === 'completed' && result.agentRun.output) {
+          const extractor = new FindingExtractor();
+          const existingFindings = getAutoFindings({ session_id: this.session.id });
+          const crossSessionFindings = getCrossSessionFindings(this.session.target_project, ['resolved', 'wont_fix']);
+          const newFindings = extractor.extract(result.agentRun.output, existingFindings, crossSessionFindings);
+          for (const f of newFindings) {
+            const created = createAutoFinding({
+              session_id: this.session.id,
+              category: f.category,
+              priority: f.priority,
+              title: f.title,
+              description: f.description,
+              file_path: f.file_path,
+              epic_id: f.epic_id,
+              epic_order: f.epic_order,
+            });
+            createdFindings.push(created);
+            this.emit({
+              type: 'finding_created',
+              data: { finding: created },
+              timestamp: new Date().toISOString(),
+            });
+          }
+
+          // Extract deferred_items → CEO requests
+          try {
+            const jsonMatch = result.agentRun.output.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+            const jsonStr = jsonMatch?.[1] || result.agentRun.output;
+            const deferredIdx = jsonStr.indexOf('"deferred_items"');
+            if (deferredIdx !== -1) {
+              const openBrace = jsonStr.lastIndexOf('{', deferredIdx);
+              if (openBrace !== -1) {
+                let depth = 0;
+                let end = openBrace;
+                for (let i = openBrace; i < jsonStr.length; i++) {
+                  if (jsonStr[i] === '{') depth++;
+                  if (jsonStr[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+                }
+                const parsed = JSON.parse(jsonStr.slice(openBrace, end + 1));
+                if (Array.isArray(parsed.deferred_items)) {
+                  for (const item of parsed.deferred_items) {
+                    if (!item.title || typeof item.title !== 'string') continue;
+                    const reason = typeof item.reason === 'string' ? item.reason : 'Deferred by Planning Moderator';
+                    const findingBlueprint = {
+                      category: item.category || 'improvement',
+                      priority: item.priority || 'P2',
+                      title: item.title,
+                      description: item.description || reason,
+                      file_path: item.file_path || null,
+                      epic_id: item.epic_id || null,
+                      epic_order: item.epic_order ?? null,
+                    };
+                    createCEORequest({
+                      session_id: this.session.id,
+                      cycle_id: this.cycleId,
+                      from_agent: agent.display_name,
+                      type: 'decision',
+                      title: `[Deferred] ${item.title}`,
+                      description: reason,
+                      metadata: JSON.stringify(findingBlueprint),
+                      blocking: false,
+                    });
+                    this.emit({
+                      type: 'ceo_request_created',
+                      data: { title: `[Deferred] ${item.title}`, reason },
+                      timestamp: new Date().toISOString(),
+                    });
+                  }
+                }
+              }
+            }
+          } catch { /* ignore parse failures */ }
+        }
+
         // Emit agent_complete or agent_failed
         this.emit({
           type: result.agentRun.status === 'completed' ? 'agent_complete' : 'agent_failed',
@@ -564,6 +647,7 @@ export class PipelineExecutor {
       totalDurationMs,
       qaResult,
       blockerInfo,
+      createdFindings,
     };
   }
 

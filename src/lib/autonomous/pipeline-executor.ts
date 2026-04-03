@@ -1031,16 +1031,25 @@ export function filterAgentsByPipelineType(
 // --- Exported parse helpers (also used by tests) ---
 
 export function parseReviewOutput(output: string): { approved: boolean; feedback: string } {
-  try {
-    const jsonMatch = output.match(/\{[\s\S]*"approved"[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        approved: parsed.approved === true,
-        feedback: parsed.issues ? JSON.stringify(parsed.issues, null, 2) : parsed.summary || '',
-      };
+  // Use balanced-brace extraction to find the JSON containing "approved"
+  const approvedIdx = output.indexOf('"approved"');
+  if (approvedIdx !== -1) {
+    const openIdx = output.lastIndexOf('{', approvedIdx);
+    if (openIdx !== -1) {
+      const json = extractBalancedBraces(output, openIdx);
+      if (json) {
+        try {
+          const parsed = JSON.parse(json);
+          if (typeof parsed.approved === 'boolean') {
+            return {
+              approved: parsed.approved,
+              feedback: parsed.issues ? JSON.stringify(parsed.issues, null, 2) : parsed.summary || '',
+            };
+          }
+        } catch { /* fallback */ }
+      }
     }
-  } catch { /* fallback */ }
+  }
   // Default to approved to avoid infinite loops
   return { approved: true, feedback: '' };
 }

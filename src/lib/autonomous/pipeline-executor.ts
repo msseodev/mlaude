@@ -797,6 +797,37 @@ export class PipelineExecutor {
       );
 
       this.currentExecutor.execute(prompt, this.session.target_project, agent.model);
+
+      // Agent-level inactivity timeout: kill if no new output for 2 hours
+      const AGENT_INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+      let lastOutputLength = 0;
+      const inactivityTimer = setInterval(() => {
+        if (resolved) {
+          clearInterval(inactivityTimer);
+          return;
+        }
+        if (output.length === lastOutputLength) {
+          // No new output since last check — kill the agent
+          clearInterval(inactivityTimer);
+          console.warn(`[pipeline] Agent "${agent.display_name}" killed after ${AGENT_INACTIVITY_TIMEOUT_MS / 60000}min inactivity (output: ${output.length} chars)`);
+          this.currentExecutor?.kill();
+          if (!resolved) {
+            resolved = true;
+            const now = new Date().toISOString();
+            updateAutoAgentRun(agentRun.id, {
+              status: 'failed',
+              output: output || `Agent killed: no output for ${AGENT_INACTIVITY_TIMEOUT_MS / 60000} minutes`,
+              duration_ms: Date.now() - startTime,
+              completed_at: now,
+            });
+            resolve({
+              agentRun: { ...agentRun, status: 'failed', output, duration_ms: Date.now() - startTime, completed_at: now },
+              rateLimited: false,
+            });
+          }
+        }
+        lastOutputLength = output.length;
+      }, AGENT_INACTIVITY_TIMEOUT_MS);
     });
   }
 

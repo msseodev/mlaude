@@ -72,7 +72,7 @@ describe('PLANNER_AGENT_NAMES', () => {
     expect(PLANNER_AGENT_NAMES.has('biz_planner')).toBe(true);
     expect(PLANNER_AGENT_NAMES.has('music_domain_planner')).toBe(true);
     expect(PLANNER_AGENT_NAMES.has('planning_moderator')).toBe(true);
-    expect(PLANNER_AGENT_NAMES.has('smoke_tester')).toBe(true);
+    expect(PLANNER_AGENT_NAMES.has('test_runner')).toBe(true);
   });
 
   it('has exactly 8 members', () => {
@@ -82,7 +82,7 @@ describe('PLANNER_AGENT_NAMES', () => {
 
 describe('isPlannerAgent', () => {
   it('returns true for all 8 planner agents', () => {
-    const plannerNames = ['product_designer', 'ux_planner', 'tech_planner', 'analyzer', 'biz_planner', 'music_domain_planner', 'planning_moderator', 'smoke_tester'];
+    const plannerNames = ['product_designer', 'ux_planner', 'tech_planner', 'analyzer', 'biz_planner', 'music_domain_planner', 'planning_moderator', 'test_runner'];
     for (const name of plannerNames) {
       expect(isPlannerAgent(makeAgent(name))).toBe(true);
     }

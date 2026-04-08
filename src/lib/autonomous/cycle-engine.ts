@@ -986,6 +986,9 @@ class CycleEngineImpl {
             title: f.title,
             description: f.description,
             file_path: f.file_path,
+            prd_path: f.prd_path,
+            epic_id: f.epic_id,
+            epic_order: f.epic_order,
           });
           this.emit({
             type: 'finding_created',

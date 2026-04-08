@@ -56,6 +56,7 @@ export async function PATCH(
             file_path: blueprint.file_path || null,
             epic_id: blueprint.epic_id || null,
             epic_order: blueprint.epic_order ?? null,
+            prd_path: blueprint.prd_path || null,
           });
         }
       } catch { /* ignore malformed metadata */ }

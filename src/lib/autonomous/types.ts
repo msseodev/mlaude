@@ -63,6 +63,7 @@ export interface AutoFinding {
   resolution_summary?: string | null;
   epic_id?: string | null;
   epic_order?: number | null;
+  prd_path?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -234,6 +235,7 @@ export interface ExtractedFinding {
   file_path: string | null;
   epic_id?: string | null;
   epic_order?: number | null;
+  prd_path?: string | null;
 }
 
 // --- Memory system types ---

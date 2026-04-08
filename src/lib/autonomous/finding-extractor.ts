@@ -33,6 +33,7 @@ export class FindingExtractor {
           ...item,
           category: item.category || 'improvement',
           file_path: item.file_path || null,
+          prd_path: item.prd_path || null,
         }));
       } else {
         rawFindings = [];
@@ -149,6 +150,7 @@ export class FindingExtractor {
       title,
       description,
       file_path: raw.file_path ? String(raw.file_path) : null,
+      prd_path: raw.prd_path ? String(raw.prd_path) : null,
     };
   }
 

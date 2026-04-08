@@ -131,6 +131,33 @@ Analyze the app from a user experience perspective and identify improvements.
 2. Understand the component hierarchy and Riverpod state management
 3. If image file paths are provided in the [App Screen Capture] section, use the Read tool to review each image in order for visual analysis
 
+## PRD File Generation
+When you propose an \`improvement\` or \`idea\` finding, you MUST also write a PRD file:
+1. Generate a slug from the title (e.g., "Score Library" → \`score-library\`)
+2. Write the file to \`docs/prd/{slug}-prd.md\` using this format:
+
+\`\`\`markdown
+# {Title}
+
+## Description
+{Detailed description of the feature/improvement}
+
+## Key Behaviors
+{Bullet list of specific behaviors and interactions}
+
+## Edge Cases
+| Situation | Handling |
+|-----------|----------|
+{Table of edge cases}
+
+## Acceptance Criteria
+{Bullet list of testable criteria}
+\`\`\`
+
+3. Include the file path as \`prd_path\` in your finding JSON output
+4. Do NOT write PRD files for \`bug\`, \`test_failure\`, \`performance\`, \`accessibility\`, or \`security\` category findings
+5. If a file with the same name already exists, read it first and either update it or choose a different slug
+
 ## Output Format
 You MUST output in the following JSON format:
 {
@@ -142,6 +169,7 @@ You MUST output in the following JSON format:
       "title": "Concise title",
       "description": "Detailed description and suggested improvement",
       "file_path": "Related file path (optional)",
+      "prd_path": "docs/prd/{slug}-prd.md (only for improvement/idea, omit otherwise)",
       "epic": "Epic name (only if part of a multi-cycle feature, omit for single-cycle items)",
       "epic_order": 1
     }
@@ -188,6 +216,33 @@ Transform the review results into the standard findings JSON format. For each fi
 - Mark large items with "epic": "<epic name>" and "epic_order": N
 - Small single-cycle items do not need an epic tag
 
+## PRD File Generation
+When you propose an \`improvement\` or \`idea\` finding, you MUST also write a PRD file:
+1. Generate a slug from the title (e.g., "Score Library" → \`score-library\`)
+2. Write the file to \`docs/prd/{slug}-prd.md\` using this format:
+
+\`\`\`markdown
+# {Title}
+
+## Description
+{Detailed description of the feature/improvement}
+
+## Key Behaviors
+{Bullet list of specific behaviors and interactions}
+
+## Edge Cases
+| Situation | Handling |
+|-----------|----------|
+{Table of edge cases}
+
+## Acceptance Criteria
+{Bullet list of testable criteria}
+\`\`\`
+
+3. Include the file path as \`prd_path\` in your finding JSON output
+4. Do NOT write PRD files for \`bug\`, \`test_failure\`, \`performance\`, \`accessibility\`, or \`security\` category findings
+5. If a file with the same name already exists, read it first and either update it or choose a different slug
+
 ## Output Format
 You MUST output in the following JSON format:
 {
@@ -199,6 +254,7 @@ You MUST output in the following JSON format:
       "title": "Concise title",
       "description": "Detailed description with file:line references and technical rationale",
       "file_path": "Related file path (optional)",
+      "prd_path": "docs/prd/{slug}-prd.md (only for improvement/idea, omit otherwise)",
       "epic": "Epic name (only if part of a multi-cycle change, omit for single-cycle items)",
       "epic_order": 1
     }
@@ -264,6 +320,33 @@ Analyze the app from a **musician's real-world usage** perspective. You understa
 5. Practice session workflow (repeat, bookmark, A-B loop)
 6. Offline reliability (no network dependency during performance)
 
+## PRD File Generation
+When you propose an \`improvement\` or \`idea\` finding, you MUST also write a PRD file:
+1. Generate a slug from the title (e.g., "Score Library" → \`score-library\`)
+2. Write the file to \`docs/prd/{slug}-prd.md\` using this format:
+
+\`\`\`markdown
+# {Title}
+
+## Description
+{Detailed description of the feature/improvement}
+
+## Key Behaviors
+{Bullet list of specific behaviors and interactions}
+
+## Edge Cases
+| Situation | Handling |
+|-----------|----------|
+{Table of edge cases}
+
+## Acceptance Criteria
+{Bullet list of testable criteria}
+\`\`\`
+
+3. Include the file path as \`prd_path\` in your finding JSON output
+4. Do NOT write PRD files for \`bug\`, \`test_failure\`, \`performance\`, \`accessibility\`, or \`security\` category findings
+5. If a file with the same name already exists, read it first and either update it or choose a different slug
+
 ## Output Format
 You MUST output in the following JSON format:
 {
@@ -275,6 +358,7 @@ You MUST output in the following JSON format:
       "title": "Concise title",
       "description": "Detailed description (including musician impact)",
       "file_path": "Related file path (optional)",
+      "prd_path": "docs/prd/{slug}-prd.md (only for improvement/idea, omit otherwise)",
       "musician_scenario": "When does this matter? (e.g., during live performance, during practice)",
       "epic": "Epic name (only if part of a multi-cycle feature, omit for single-cycle items)",
       "epic_order": 1
@@ -406,14 +490,16 @@ Small single-cycle items do NOT need an epic tag — output them as regular agre
 - Downgrade priority by one level if implementation difficulty is high
 - Prioritize quick wins (small effort + high impact)
 
-## Spec Documentation
-Before JSON output, write the final spec document in markdown to the \`docs/PRD.md\` file.
-- If the file already exists, **append** the new cycle's planning content (include a date header)
-- Format: title, background/purpose, detailed description per agreed item, deferred items, conflict resolution notes
-- This document is the official spec read by developers and stakeholders
+## PRD File Management
+Planner agents may have written individual PRD files in \`docs/prd/\` for improvement/idea items.
+After finalizing agreed_items:
+1. **Keep**: PRD files for items that made it into agreed_items — preserve the \`prd_path\` in the output
+2. **Delete**: PRD files for items that were rejected or deduplicated — use the Bash tool to remove them
+3. **Merge**: If multiple planners wrote PRDs for the same feature, keep the more detailed one and delete the other
+4. Do NOT write to \`docs/PRD.md\` — individual PRD files in \`docs/prd/\` replace it
 
 ## Output Format
-After writing the spec file, you MUST also output in the following JSON format:
+You MUST output in the following JSON format:
 {
   "planning_summary": "Planning review result summary (3-5 sentences)",
   "agreed_items": [
@@ -424,6 +510,7 @@ After writing the spec file, you MUST also output in the following JSON format:
       "category": "bug|improvement|idea|performance|accessibility|security",
       "source_perspectives": ["ux", "tech", "music_domain"],
       "file_path": "Related file path (optional)",
+      "prd_path": "docs/prd/{slug}-prd.md (if applicable)",
       "epic": "Epic name (only for multi-cycle features, omit for single-cycle items)",
       "epic_order": 1
     }

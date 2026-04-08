@@ -266,6 +266,11 @@ export function initAutoTables(): void {
   } catch { /* Column already exists */ }
   db.exec('CREATE INDEX IF NOT EXISTS idx_auto_findings_epic_id ON auto_findings(epic_id)');
 
+  // v13: Add prd_path to findings
+  try {
+    db.exec('ALTER TABLE auto_findings ADD COLUMN prd_path TEXT');
+  } catch { /* Column already exists */ }
+
   // v6: CEO escalation requests table
   db.exec(`
     CREATE TABLE IF NOT EXISTS auto_ceo_requests (
@@ -462,6 +467,7 @@ export function createAutoFinding(data: {
   project_path?: string;
   epic_id?: string | null;
   epic_order?: number | null;
+  prd_path?: string | null;
 }): AutoFinding {
   const db = getDb();
   const id = uuidv4();
@@ -475,8 +481,8 @@ export function createAutoFinding(data: {
   }
 
   db.prepare(
-    'INSERT INTO auto_findings (id, session_id, category, priority, title, description, file_path, status, retry_count, max_retries, project_path, epic_id, epic_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(id, data.session_id, data.category, data.priority ?? 'P2', data.title, data.description, data.file_path ?? null, 'open', 0, data.max_retries ?? 3, projectPath, data.epic_id ?? null, data.epic_order ?? null, now, now);
+    'INSERT INTO auto_findings (id, session_id, category, priority, title, description, file_path, status, retry_count, max_retries, project_path, epic_id, epic_order, prd_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(id, data.session_id, data.category, data.priority ?? 'P2', data.title, data.description, data.file_path ?? null, 'open', 0, data.max_retries ?? 3, projectPath, data.epic_id ?? null, data.epic_order ?? null, data.prd_path ?? null, now, now);
 
   return getAutoFinding(id)!;
 }

@@ -435,6 +435,7 @@ export class PipelineExecutor {
               file_path: f.file_path,
               epic_id: f.epic_id,
               epic_order: f.epic_order,
+              prd_path: f.prd_path,
             });
             createdFindings.push(created);
             this.emit({

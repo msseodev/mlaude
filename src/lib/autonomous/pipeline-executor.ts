@@ -81,6 +81,7 @@ export function isPlannerAgent(agent: AutoAgent): boolean {
 export class PipelineExecutor {
   private currentExecutor: ClaudeExecutor | null = null;
   private aborted = false;
+  private pendingAgentResolve: (() => void) | null = null;
   private lastActivityAt: string = new Date().toISOString();
   private currentAgentName: string | null = null;
   private currentAgentStartedAt: string | null = null;
@@ -718,6 +719,24 @@ export class PipelineExecutor {
       this.currentAgentName = agent.display_name;
       this.currentAgentStartedAt = new Date().toISOString();
 
+      // Store abort resolver so abort() can resolve this Promise
+      this.pendingAgentResolve = () => {
+        if (resolved) return;
+        resolved = true;
+        const now = new Date().toISOString();
+        updateAutoAgentRun(agentRun.id, {
+          status: 'failed',
+          output: output || 'Agent aborted by watchdog',
+          duration_ms: Date.now() - startTime,
+          exit_code: 143,
+          completed_at: now,
+        });
+        resolve({
+          agentRun: { ...agentRun, status: 'failed', output: output || 'Agent aborted by watchdog', exit_code: 143, duration_ms: Date.now() - startTime, completed_at: now },
+          rateLimited: false,
+        });
+      };
+
       this.currentExecutor = new ClaudeExecutor(
         claudeBinary,
         // onEvent
@@ -738,6 +757,7 @@ export class PipelineExecutor {
         (info: RateLimitInfo) => {
           if (resolved) return;
           resolved = true;
+          this.pendingAgentResolve = null;
           const now = new Date().toISOString();
           updateAutoAgentRun(agentRun.id, {
             status: 'failed',
@@ -755,6 +775,7 @@ export class PipelineExecutor {
         (result) => {
           if (resolved) return;
           resolved = true;
+          this.pendingAgentResolve = null;
 
           // Treat auth errors like rate limits — bubble up to abort pipeline
           if (result.isAuthError) {
@@ -820,6 +841,7 @@ export class PipelineExecutor {
           this.currentExecutor?.kill();
           if (!resolved) {
             resolved = true;
+            this.pendingAgentResolve = null;
             const now = new Date().toISOString();
             updateAutoAgentRun(agentRun.id, {
               status: 'failed',
@@ -1117,6 +1139,11 @@ export class PipelineExecutor {
     if (this.currentExecutor) {
       this.currentExecutor.kill();
       this.currentExecutor = null;
+    }
+    // Resolve any pending agent Promise so the pipeline doesn't hang
+    if (this.pendingAgentResolve) {
+      this.pendingAgentResolve();
+      this.pendingAgentResolve = null;
     }
   }
 }

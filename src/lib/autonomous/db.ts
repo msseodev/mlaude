@@ -296,6 +296,11 @@ export function initAutoTables(): void {
     db.exec('ALTER TABLE auto_ceo_requests ADD COLUMN metadata TEXT');
   } catch { /* Column already exists */ }
 
+  // v14: Add exit_code column to auto_agent_runs for post-mortem analysis
+  try {
+    db.exec('ALTER TABLE auto_agent_runs ADD COLUMN exit_code INTEGER');
+  } catch { /* Column already exists */ }
+
 }
 
 let crashRecoveryDone = false;
@@ -777,7 +782,7 @@ export function createAutoAgentRun(data: { cycle_id: string; agent_id: string; a
   return db.prepare('SELECT * FROM auto_agent_runs WHERE id = ?').get(id) as AutoAgentRun;
 }
 
-export function updateAutoAgentRun(id: string, data: Partial<Pick<AutoAgentRun, 'status' | 'output' | 'cost_usd' | 'duration_ms' | 'completed_at'>>): AutoAgentRun | undefined {
+export function updateAutoAgentRun(id: string, data: Partial<Pick<AutoAgentRun, 'status' | 'output' | 'cost_usd' | 'duration_ms' | 'exit_code' | 'completed_at'>>): AutoAgentRun | undefined {
   const db = getDb();
   const existing = db.prepare('SELECT * FROM auto_agent_runs WHERE id = ?').get(id) as AutoAgentRun | undefined;
   if (!existing) return undefined;
@@ -790,8 +795,9 @@ export function updateAutoAgentRun(id: string, data: Partial<Pick<AutoAgentRun, 
     : output;
   const cost_usd = data.cost_usd !== undefined ? data.cost_usd : existing.cost_usd;
   const duration_ms = data.duration_ms !== undefined ? data.duration_ms : existing.duration_ms;
+  const exit_code = data.exit_code !== undefined ? data.exit_code : existing.exit_code;
   const completed_at = data.completed_at !== undefined ? data.completed_at : existing.completed_at;
-  db.prepare('UPDATE auto_agent_runs SET status = ?, output = ?, cost_usd = ?, duration_ms = ?, completed_at = ? WHERE id = ?').run(status, cappedOutput, cost_usd, duration_ms, completed_at, id);
+  db.prepare('UPDATE auto_agent_runs SET status = ?, output = ?, cost_usd = ?, duration_ms = ?, exit_code = ?, completed_at = ? WHERE id = ?').run(status, cappedOutput, cost_usd, duration_ms, exit_code, completed_at, id);
   return db.prepare('SELECT * FROM auto_agent_runs WHERE id = ?').get(id) as AutoAgentRun | undefined;
 }
 

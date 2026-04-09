@@ -344,7 +344,7 @@ class RunManagerImpl {
     this.executor.execute(effectivePrompt, workingDirectory, prompt.model || undefined);
   }
 
-  private handlePromptComplete(result: { cost_usd: number | null; duration_ms: number | null; output: string; isError: boolean; isAuthError: boolean }): void {
+  private handlePromptComplete(result: { cost_usd: number | null; duration_ms: number | null; output: string; isError: boolean; isAuthError: boolean; exitCode: number | null }): void {
     if (!this.currentSessionId) return;
 
     const session = getSession(this.currentSessionId);

@@ -1,3 +1,4 @@
+import path from 'path';
 import { ClaudeExecutor } from '../claude-executor';
 import { getSetting } from '../db';
 import {
@@ -761,11 +762,12 @@ export class PipelineExecutor {
             updateAutoAgentRun(agentRun.id, {
               status: 'failed',
               output: result.output || output,
+              exit_code: result.exitCode,
               duration_ms: result.duration_ms ?? (Date.now() - startTime),
               completed_at: now,
             });
             resolve({
-              agentRun: { ...agentRun, status: 'failed', output: result.output || output, duration_ms: result.duration_ms ?? (Date.now() - startTime), completed_at: now },
+              agentRun: { ...agentRun, status: 'failed', output: result.output || output, exit_code: result.exitCode, duration_ms: result.duration_ms ?? (Date.now() - startTime), completed_at: now },
               rateLimited: false,
               authError: true,
             });
@@ -781,6 +783,7 @@ export class PipelineExecutor {
             output: finalOutput,
             cost_usd: result.cost_usd,
             duration_ms: result.duration_ms,
+            exit_code: result.exitCode,
             completed_at: now,
           });
           resolve({
@@ -790,6 +793,7 @@ export class PipelineExecutor {
               output: finalOutput,
               cost_usd: result.cost_usd,
               duration_ms: result.duration_ms,
+              exit_code: result.exitCode,
               completed_at: now,
             },
             rateLimited: false,
@@ -797,7 +801,9 @@ export class PipelineExecutor {
         },
       );
 
-      this.currentExecutor.execute(prompt, this.session.target_project, agent.model);
+      const logDir = path.join(this.session.target_project, '.mlaude', 'logs');
+      const logFile = path.join(logDir, `${agentRun.id}.log`);
+      this.currentExecutor.execute(prompt, this.session.target_project, agent.model, logFile);
 
       // Agent-level inactivity timeout: kill if no new output for 2 hours
       const AGENT_INACTIVITY_TIMEOUT_MS = 2 * 60 * 60 * 1000;

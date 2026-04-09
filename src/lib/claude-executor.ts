@@ -1,4 +1,5 @@
 import { spawn, execFileSync, ChildProcess } from 'child_process';
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { StreamParser } from './stream-parser';
@@ -10,6 +11,7 @@ export class ClaudeExecutor {
   private streamParser: StreamParser;
   private rateLimitDetector: RateLimitDetector;
   private killed: boolean = false;
+  private completed: boolean = false;
   private accumulatedOutput: string = '';
   private accumulatedStderr: string = '';
   private lastCostUsd: number | null = null;
@@ -17,12 +19,13 @@ export class ClaudeExecutor {
   private inToolUse: boolean = false;
   private currentToolName: string = 'unknown';
   private hasReceivedStreamingDeltas: boolean = false;
+  private exitSafetyTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private claudeBinary: string,
     private onEvent: (event: SSEEvent) => void,
     private onRateLimit: (info: RateLimitInfo) => void,
-    private onComplete: (result: { cost_usd: number | null; duration_ms: number | null; output: string; isError: boolean; isAuthError: boolean }) => void,
+    private onComplete: (result: { cost_usd: number | null; duration_ms: number | null; output: string; isError: boolean; isAuthError: boolean; exitCode: number | null }) => void,
   ) {
     this.streamParser = new StreamParser();
     this.rateLimitDetector = new RateLimitDetector();
@@ -37,8 +40,10 @@ export class ClaudeExecutor {
     }
   }
 
-  execute(promptContent: string, workingDirectory: string, model?: string): void {
+  execute(promptContent: string, workingDirectory: string, model?: string, logFile?: string): void {
     this.killed = false;
+    this.completed = false;
+    if (this.exitSafetyTimer) { clearTimeout(this.exitSafetyTimer); this.exitSafetyTimer = null; }
     this.accumulatedOutput = '';
     this.accumulatedStderr = '';
     this.lastCostUsd = null;
@@ -82,6 +87,12 @@ export class ClaudeExecutor {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
+    if (logFile) {
+      const dir = path.dirname(logFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(logFile, `[${new Date().toISOString()}] Process started: PID=${this.process?.pid}\n`);
+    }
+
     this.process.stdout?.on('data', (data: Buffer) => {
       const chunk = data.toString();
       const events = this.streamParser.parse(chunk);
@@ -94,16 +105,25 @@ export class ClaudeExecutor {
       const text = data.toString();
       this.accumulatedStderr += text;
       console.error(`[claude-executor stderr] ${text.trim()}`);
+      if (logFile) {
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] [stderr] ${text}`);
+      }
     });
 
     this.process.on('close', (code: number | null) => {
+      if (logFile) {
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] Process exited: code=${code}\n`);
+      }
+
       // Flush remaining buffer
       const remaining = this.streamParser.flush();
       for (const event of remaining) {
         this.processEvent(event);
       }
 
-      if (this.killed) return;
+      if (this.completed || this.killed) return;
+      this.completed = true;
+      if (this.exitSafetyTimer) { clearTimeout(this.exitSafetyTimer); this.exitSafetyTimer = null; }
 
       // Check for rate limit via exit code
       const exitCodeCheck = this.rateLimitDetector.checkExitCode(code);
@@ -145,20 +165,87 @@ export class ClaudeExecutor {
         output,
         isError,
         isAuthError,
+        exitCode: code,
       });
     });
 
     this.process.on('error', (err: Error) => {
       console.error(`[claude-executor] Process error: ${err.message}`);
-      if (!this.killed) {
-        this.onComplete({
-          cost_usd: null,
-          duration_ms: null,
-          output: `Process error: ${err.message}`,
-          isError: true,
-          isAuthError: false,
-        });
+      if (logFile) {
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] Process error: ${err.message}\n`);
       }
+      if (this.completed || this.killed) return;
+      this.completed = true;
+      if (this.exitSafetyTimer) { clearTimeout(this.exitSafetyTimer); this.exitSafetyTimer = null; }
+      this.onComplete({
+        cost_usd: null,
+        duration_ms: null,
+        output: `Process error: ${err.message}`,
+        isError: true,
+        isAuthError: false,
+        exitCode: null,
+      });
+    });
+
+    // Safety net: 'exit' fires when the process exits, 'close' fires when stdio streams close.
+    // They can fire in either order, and 'close' might not fire if stdio is held open.
+    this.process.on('exit', (code: number | null, signal: string | null) => {
+      if (logFile) {
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] Process exit event: code=${code} signal=${signal}\n`);
+      }
+      // If close/error handler hasn't completed within 10s, force complete
+      this.exitSafetyTimer = setTimeout(() => {
+        this.exitSafetyTimer = null;
+        if (this.completed || this.killed) return;
+        this.completed = true;
+        if (logFile) {
+          fs.appendFileSync(logFile, `[${new Date().toISOString()}] Force completing via exit safety net\n`);
+        }
+        const remaining = this.streamParser.flush();
+        for (const event of remaining) {
+          this.processEvent(event);
+        }
+        // Guard: processEvent flush may have triggered kill/complete via rate limit detection
+        if (this.killed) return;
+
+        // Check for rate limit via exit code
+        const exitCodeCheck = this.rateLimitDetector.checkExitCode(code);
+        if (exitCodeCheck.detected) {
+          this.onRateLimit(exitCodeCheck);
+          return;
+        }
+
+        const isError = code !== null && code !== 0;
+
+        if (isError) {
+          const textCheck = this.rateLimitDetector.checkText(this.accumulatedOutput + this.accumulatedStderr);
+          if (textCheck.detected) {
+            this.onRateLimit(textCheck);
+            return;
+          }
+        }
+
+        let isAuthError = false;
+        if (isError) {
+          const authCheck = this.rateLimitDetector.checkAuthError(this.accumulatedOutput + this.accumulatedStderr);
+          isAuthError = authCheck.detected;
+        }
+
+        let output = this.accumulatedOutput;
+        if (isError && this.accumulatedStderr) {
+          output = output
+            ? `${output}\n\n[stderr]\n${this.accumulatedStderr}`
+            : `[stderr]\n${this.accumulatedStderr}`;
+        }
+        this.onComplete({
+          cost_usd: this.lastCostUsd,
+          duration_ms: this.lastDurationMs,
+          output,
+          isError,
+          isAuthError,
+          exitCode: code,
+        });
+      }, 10000);
     });
   }
 
@@ -240,6 +327,8 @@ export class ClaudeExecutor {
 
   kill(): void {
     this.killed = true;
+    this.completed = true;
+    if (this.exitSafetyTimer) { clearTimeout(this.exitSafetyTimer); this.exitSafetyTimer = null; }
     const proc = this.process;
     if (proc && !proc.killed) {
       proc.kill('SIGTERM');

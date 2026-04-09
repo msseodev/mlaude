@@ -110,6 +110,7 @@ export interface AutoAgentRun {
   output: string;
   cost_usd: number | null;
   duration_ms: number | null;
+  exit_code: number | null;
   started_at: string;
   completed_at: string | null;
 }

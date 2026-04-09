@@ -91,10 +91,9 @@ export class Watchdog {
 ## Diagnostics
 - Cycle: #${diag.cycleNumber} (ID: ${diag.cycleId})
 - Task: ${diag.findingTitle || 'No specific finding'}
-- Started: ${diag.startedAt}
-- Elapsed: ${Math.round(diag.elapsedMs / 1000 / 60)} minutes
 - Current Agent: ${diag.currentAgentName || 'unknown'}
-- Agent Started: ${diag.agentStartedAt || 'unknown'}
+- Agent Started: ${diag.startedAt}
+- Agent Elapsed: ${Math.round(diag.elapsedMs / 1000 / 60)} minutes
 - Last Output: ${diag.lastOutputAt || 'no output yet'}
 - Output Size: ${diag.outputSizeBytes} bytes
 - Output Growth (last hour): ${diag.outputGrowthSinceLastCheck} bytes
@@ -102,9 +101,9 @@ export class Watchdog {
 - Session Total Cost: $${diag.sessionTotalCost?.toFixed(2) || '0.00'}
 
 ## Decision Criteria
-- If output has NOT grown at all in the last hour AND elapsed > 60 minutes → likely stuck
+- If output has NOT grown at all in the last hour AND agent elapsed > 60 minutes → likely stuck
 - If output is growing (even slowly), the agent may be working → let it continue
-- If elapsed > 3 hours regardless of output growth → consider killing (diminishing returns)
+- If agent elapsed > 3 hours regardless of output growth → consider killing (diminishing returns)
 - If cost for this single cycle > $20 → consider killing (cost overrun)
 - Normal cycle costs $3-$20. Cycle 7 (model training on GCP) was an exception at $63.
 

@@ -518,8 +518,8 @@ class CycleEngineImpl {
         return {
           cycleId: this.currentCycleId,
           cycleNumber: this.cycleNumber,
-          startedAt: cycleRecord?.started_at || new Date().toISOString(),
-          elapsedMs: Date.now() - new Date(cycleRecord?.started_at || Date.now()).getTime(),
+          startedAt: activityInfo.currentAgentStartedAt || cycleRecord?.started_at || new Date().toISOString(),
+          elapsedMs: Date.now() - new Date(activityInfo.currentAgentStartedAt || cycleRecord?.started_at || Date.now()).getTime(),
           currentAgentName: activityInfo.currentAgentName,
           agentStartedAt: activityInfo.currentAgentStartedAt,
           lastOutputAt: activityInfo.lastActivityAt,

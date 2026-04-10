@@ -227,7 +227,7 @@ Only use BLOCKER when the production code is genuinely wrong. If the test expect
   {
     name: 'reviewer',
     display_name: 'Reviewer',
-    role_description: 'Multi-perspective code reviewer — launches 6 parallel review agents (correctness, architecture, performance, testing, security, convention)',
+    role_description: 'Multi-perspective code reviewer — launches 4 parallel review agents (correctness+security, architecture+convention, performance, testing)',
     model: 'claude-opus-4-6',
     parallel_group: null,
     enabled: 1,
@@ -245,16 +245,16 @@ Read the full contents of every changed/added file so each review agent has comp
 
 If there are no changes at all, output approved: true with summary "No changes to review."
 
-### Step 2: Launch 6 Review Agents in Parallel
-Launch ALL 6 agents simultaneously using the Agent tool in a single response. Each agent receives the diff output, the full file contents, and the project conventions from CLAUDE.md.
+### Step 2: Launch 4 Review Agents in Parallel
+Launch ALL 4 agents simultaneously using the Agent tool in a single response. Each agent receives the diff output, the full file contents, and the project conventions from CLAUDE.md.
 
-**Agent 1 — Correctness**
-Focus: off-by-one errors, null safety, unhandled edge cases, type mismatches, wrong conditionals, incorrect state transitions, race conditions, async/await misuse.
+**Agent 1 — Correctness & Security**
+Focus: off-by-one errors, null safety, unhandled edge cases, type mismatches, wrong conditionals, incorrect state transitions, race conditions, async/await misuse, hardcoded secrets, insufficient input validation, path traversal, sensitive data in logs/errors, insecure storage, SQL injection (raw Drift queries), missing permission checks.
 Do NOT comment on style, naming, performance, or architecture.
 
-**Agent 2 — Architecture & Design**
-Focus: violation of existing patterns (Riverpod providers, feature-first structure, repository pattern), layer coupling, responsibility leaks, unnecessary/missing abstractions, SRP violations, codebase inconsistency.
-Do NOT comment on correctness, performance, or style.
+**Agent 2 — Architecture & Convention**
+Focus: violation of existing patterns (Riverpod providers, feature-first structure, repository pattern), layer coupling, responsibility leaks, unnecessary/missing abstractions, SRP violations, codebase inconsistency, file naming (snake_case), class naming (PascalCase), provider naming ({feature}Provider), directory structure (feature-first), comments in English, coordinate system (0.0~1.0 ratios), Dart style guide, import ordering.
+Do NOT comment on correctness, performance, or security.
 
 **Agent 3 — Performance**
 Focus: unnecessary widget rebuilds (missing const, incorrect provider watching), missing dispose(), memory leaks, O(n²) complexity, hot-path allocations, main isolate blocking, inefficient collection operations.
@@ -264,14 +264,6 @@ Do NOT comment on correctness, architecture, or style.
 Focus: changed business logic lacking test updates, new code paths without coverage, tests that don't assert changed behavior, brittle implementation-coupled tests, missing edge case tests.
 Do NOT comment on style, architecture, or performance.
 
-**Agent 5 — Security**
-Focus: hardcoded secrets, insufficient input validation, path traversal, sensitive data in logs/errors, insecure storage, SQL injection (raw Drift queries), missing permission checks.
-Do NOT comment on style, performance, or architecture.
-
-**Agent 6 — Convention & Style**
-Focus: file naming (snake_case), class naming (PascalCase), provider naming ({feature}Provider), directory structure (feature-first), comments in English, coordinate system (0.0~1.0 ratios), Dart style guide, import ordering.
-Do NOT comment on correctness, performance, or security.
-
 Each agent must return findings as:
 - **File**: path
 - **Line(s)**: line number or range
@@ -280,7 +272,7 @@ Each agent must return findings as:
 - **Suggestion**: how to fix
 
 ### Step 3: Synthesize and Output
-After all 6 agents complete, combine their findings. Map severities:
+After all 4 agents complete, combine their findings. Map severities:
 - Critical → "critical"
 - Warning → "major"
 - Info → "minor"
@@ -291,7 +283,7 @@ You MUST output in the following JSON format:
   "issues": [
     {
       "severity": "critical|major|minor",
-      "perspective": "correctness|architecture|performance|testing|security|convention",
+      "perspective": "correctness_security|architecture_convention|performance|testing",
       "file": "path/to/file",
       "lines": "line number or range",
       "description": "Issue description",

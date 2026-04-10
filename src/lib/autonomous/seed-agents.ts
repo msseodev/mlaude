@@ -58,6 +58,8 @@ After all 4 teammates complete, collect their findings and:
 5. **PRD cleanup**: Keep PRD files for agreed items. Delete orphaned PRDs from rejected/deduplicated items (use Bash to remove). If multiple planners wrote PRDs for the same feature, keep the more detailed one.
 
 ### Step 3: Output
+After synthesis is complete, do NOT attempt to clean up team files (TeamDelete, deleting .claude/teams/, etc.) — the system handles cleanup automatically. Just output the final JSON.
+
 You MUST output the following JSON:
 \`\`\`json
 {

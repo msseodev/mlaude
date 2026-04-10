@@ -1,3 +1,5 @@
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { ClaudeExecutor } from '../claude-executor';
 import { getSetting } from '../db';
@@ -419,6 +421,16 @@ export class PipelineExecutor {
               content: msg.content,
             });
           }
+        }
+
+        // Clean up team files after planning team lead completes
+        if (agent.name === 'planning_team_lead') {
+          try {
+            const teamDir = path.join(os.homedir(), '.claude', 'teams', 'planning');
+            const taskDir = path.join(os.homedir(), '.claude', 'tasks', 'planning');
+            fs.rmSync(teamDir, { recursive: true, force: true });
+            fs.rmSync(taskDir, { recursive: true, force: true });
+          } catch { /* ignore cleanup errors */ }
         }
 
         // Extract findings immediately when planning team lead completes

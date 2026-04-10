@@ -73,7 +73,7 @@ interface FeedbackLoopResult {
 }
 
 // Planning agents — receive screen frames and initial_prompt
-export const PLANNER_AGENT_NAMES = new Set(['product_designer', 'ux_planner', 'tech_planner', 'analyzer', 'biz_planner', 'music_domain_planner', 'planning_moderator', 'test_runner']);
+export const PLANNER_AGENT_NAMES = new Set(['planning_team_lead']);
 export function isPlannerAgent(agent: AutoAgent): boolean {
   return PLANNER_AGENT_NAMES.has(agent.name);
 }
@@ -301,7 +301,7 @@ export class PipelineExecutor {
         const agent = step.agents[0];
 
         // Emit planning_review_start for the moderator
-        if (agent.name === 'planning_moderator') {
+        if (agent.name === 'planning_team_lead') {
           this.emit({
             type: 'planning_review_start',
             data: { agentId: agent.id, agentName: agent.display_name },
@@ -421,8 +421,8 @@ export class PipelineExecutor {
           }
         }
 
-        // Extract findings immediately when moderator/designer completes
-        if ((agent.name === 'planning_moderator' || agent.name === 'product_designer') && result.agentRun.status === 'completed' && result.agentRun.output) {
+        // Extract findings immediately when planning team lead completes
+        if (agent.name === 'planning_team_lead' && result.agentRun.status === 'completed' && result.agentRun.output) {
           const extractor = new FindingExtractor();
           const existingFindings = getAutoFindings({ session_id: this.session.id });
           const crossSessionFindings = getCrossSessionFindings(this.session.target_project, ['resolved', 'wont_fix']);
@@ -515,8 +515,7 @@ export class PipelineExecutor {
           const devParsed = parseDeveloperOutput(result.agentRun.output);
           if (devParsed.blocked) {
             // Find the moderator first, fall back to designer
-            const feedbackTarget = agents.find(a => a.name === 'planning_moderator')
-              || agents.find(a => a.name === 'product_designer');
+            const feedbackTarget = agents.find(a => a.name === 'planning_team_lead');
 
             if (!feedbackTarget) {
               // No feedback target in this pipeline (e.g. test_fix has no planners).

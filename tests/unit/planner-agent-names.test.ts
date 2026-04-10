@@ -64,28 +64,18 @@ function makeAgent(name: string): AutoAgent {
 }
 
 describe('PLANNER_AGENT_NAMES', () => {
-  it('contains all 8 planner agent names', () => {
-    expect(PLANNER_AGENT_NAMES.has('product_designer')).toBe(true);
-    expect(PLANNER_AGENT_NAMES.has('ux_planner')).toBe(true);
-    expect(PLANNER_AGENT_NAMES.has('tech_planner')).toBe(true);
-    expect(PLANNER_AGENT_NAMES.has('analyzer')).toBe(true);
-    expect(PLANNER_AGENT_NAMES.has('biz_planner')).toBe(true);
-    expect(PLANNER_AGENT_NAMES.has('music_domain_planner')).toBe(true);
-    expect(PLANNER_AGENT_NAMES.has('planning_moderator')).toBe(true);
-    expect(PLANNER_AGENT_NAMES.has('test_runner')).toBe(true);
+  it('contains planning_team_lead', () => {
+    expect(PLANNER_AGENT_NAMES.has('planning_team_lead')).toBe(true);
   });
 
-  it('has exactly 8 members', () => {
-    expect(PLANNER_AGENT_NAMES.size).toBe(8);
+  it('has exactly 1 member', () => {
+    expect(PLANNER_AGENT_NAMES.size).toBe(1);
   });
 });
 
 describe('isPlannerAgent', () => {
-  it('returns true for all 8 planner agents', () => {
-    const plannerNames = ['product_designer', 'ux_planner', 'tech_planner', 'analyzer', 'biz_planner', 'music_domain_planner', 'planning_moderator', 'test_runner'];
-    for (const name of plannerNames) {
-      expect(isPlannerAgent(makeAgent(name))).toBe(true);
-    }
+  it('returns true for planning_team_lead', () => {
+    expect(isPlannerAgent(makeAgent('planning_team_lead'))).toBe(true);
   });
 
   it('returns false for non-planner agents', () => {

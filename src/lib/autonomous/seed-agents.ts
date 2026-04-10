@@ -470,12 +470,12 @@ You MUST output in the following JSON format:
 export function seedBuiltinAgents(db: Database.Database): void {
   const now = new Date().toISOString();
 
-  // Migration: disable individual planners + moderator when planning_team_lead is introduced
-  const teamLeadExists = db.prepare("SELECT 1 FROM auto_agents WHERE name = 'planning_team_lead'").get();
-  if (!teamLeadExists) {
-    const replacedAgents = ['ux_planner', 'analyzer', 'music_domain_planner', 'test_runner', 'planning_moderator'];
-    for (const name of replacedAgents) {
-      db.prepare("UPDATE auto_agents SET enabled = 0, updated_at = ? WHERE name = ? AND is_builtin = 1").run(now, name);
+  // Disable builtin agents that are no longer in BUILTIN_AGENTS (can't delete due to FK on agent_runs)
+  const currentNames = new Set(BUILTIN_AGENTS.map(a => a.name));
+  const dbBuiltins = db.prepare("SELECT name FROM auto_agents WHERE is_builtin = 1").all() as Array<{ name: string }>;
+  for (const row of dbBuiltins) {
+    if (!currentNames.has(row.name)) {
+      db.prepare("UPDATE auto_agents SET enabled = 0, updated_at = ? WHERE name = ? AND is_builtin = 1").run(now, row.name);
     }
   }
 

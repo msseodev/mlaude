@@ -48,7 +48,7 @@ function getStepBorderColor(step: WorkflowStep): string {
   if (step.type === 'parallel') return 'border-blue-500/30';
   const name = step.agents[0]?.name;
   switch (name) {
-    case 'planning_moderator': return 'border-purple-500/30';
+    case 'planning_team_lead': return 'border-purple-500/30';
     case 'developer': return 'border-green-500/30';
     case 'reviewer': return 'border-orange-500/30';
     case 'qa_engineer': return 'border-cyan-500/30';
@@ -60,7 +60,7 @@ function getStepBgColor(step: WorkflowStep): string {
   if (step.type === 'parallel') return 'bg-blue-950/20';
   const name = step.agents[0]?.name;
   switch (name) {
-    case 'planning_moderator': return 'bg-purple-950/20';
+    case 'planning_team_lead': return 'bg-purple-950/20';
     case 'developer': return 'bg-green-950/20';
     case 'reviewer': return 'bg-orange-950/20';
     case 'qa_engineer': return 'bg-cyan-950/20';
@@ -72,7 +72,7 @@ function getStepHeaderColor(step: WorkflowStep): string {
   if (step.type === 'parallel') return 'text-blue-400';
   const name = step.agents[0]?.name;
   switch (name) {
-    case 'planning_moderator': return 'text-purple-400';
+    case 'planning_team_lead': return 'text-purple-400';
     case 'developer': return 'text-green-400';
     case 'reviewer': return 'text-orange-400';
     case 'qa_engineer': return 'text-cyan-400';
@@ -85,7 +85,7 @@ function getAgentCardBorder(agent: WorkflowAgent): string {
     case 'ux_planner': return 'border-blue-500/40';
     case 'tech_planner': return 'border-blue-500/40';
     case 'biz_planner': return 'border-blue-500/40';
-    case 'planning_moderator': return 'border-purple-500/40';
+    case 'planning_team_lead': return 'border-purple-500/40';
     case 'developer': return 'border-green-500/40';
     case 'reviewer': return 'border-orange-500/40';
     case 'qa_engineer': return 'border-cyan-500/40';
@@ -100,7 +100,7 @@ function getPhaseLabel(step: WorkflowStep, index: number): string {
   }
   const name = step.agents[0]?.name;
   switch (name) {
-    case 'planning_moderator': return `Phase ${index + 1}: Planning Review`;
+    case 'planning_team_lead': return `Phase ${index + 1}: Planning`;
     case 'developer': return `Phase ${index + 1}: Development`;
     case 'reviewer': return `Phase ${index + 1}: Review`;
     case 'qa_engineer': return `Phase ${index + 1}: QA`;
@@ -111,10 +111,7 @@ function getPhaseLabel(step: WorkflowStep, index: number): string {
 // --- Display name map ---
 
 const agentDisplayName: Record<string, string> = {
-  ux_planner: 'UX Planner',
-  tech_planner: 'Tech Planner',
-  biz_planner: 'Biz Planner',
-  planning_moderator: 'Planning Moderator',
+  planning_team_lead: 'Planning Team Lead',
   developer: 'Developer',
   reviewer: 'Reviewer',
   qa_engineer: 'QA Engineer',
@@ -306,7 +303,7 @@ export default function AutoWorkflowPage() {
         <h2 className="mb-4 text-lg font-semibold text-zinc-400">Legend</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <LegendItem color="bg-blue-500/30" label="Parallel Planning" />
-          <LegendItem color="bg-purple-500/30" label="Planning Moderator" />
+          <LegendItem color="bg-purple-500/30" label="Planning Team Lead" />
           <LegendItem color="bg-green-500/30" label="Development" />
           <LegendItem color="bg-orange-500/30" label="Review" />
           <LegendItem color="bg-cyan-500/30" label="QA" />

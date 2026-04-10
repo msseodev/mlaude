@@ -36,7 +36,7 @@ const faqItems = [
   },
   {
     q: 'How do I switch back to the single designer mode?',
-    a: 'Enable Product Designer and disable the 3 planners (UX/Tech/Biz) + Moderator. The pipeline will automatically switch to a Product Designer-based flow.',
+    a: 'Enable Product Designer and disable the Planning Team Lead. The pipeline will automatically switch to a Product Designer-based flow.',
   },
   {
     q: 'What if my project is not Node.js?',
@@ -57,7 +57,7 @@ const settingsData = [
   { name: 'Max Retries', key: 'max_retries', desc: 'Maximum retry attempts per finding', default: '3' },
   { name: 'Consecutive Failure Limit', key: 'max_consecutive_failures', desc: 'Auto-stop after N consecutive failures', default: '5' },
   { name: 'Review Iterations', key: 'review_max_iterations', desc: 'Max Reviewer - Developer feedback iterations', default: '2' },
-  { name: 'Planner Iterations', key: 'max_designer_iterations', desc: 'Max Moderator - Developer feedback iterations', default: '2' },
+  { name: 'Planner Iterations', key: 'max_designer_iterations', desc: 'Max Team Lead - Developer feedback iterations', default: '2' },
 ];
 
 // --- FAQ Accordion Item ---
@@ -179,42 +179,21 @@ export default function AutoGuidePage() {
 
               {/* Pipeline diagram */}
               <div className="bg-zinc-950 rounded-lg p-5 border border-zinc-700 font-mono text-xs overflow-x-auto">
-                <pre className="text-zinc-300">{`┌──────────────┐
-│  UX Planner  │──┐
-└──────────────┘   │
-┌──────────────┐   │                  ┌────────────────────┐    ┌───────────┐    ┌──────────┐    ┌────────────┐
-│ Tech Planner │──┼── Parallel ───→ │ Planning Moderator │──→│ Developer │──→│ Reviewer │──→│ QA Engineer│
-└──────────────┘   │                  └────────────────────┘    └───────────┘    └──────────┘    └────────────┘
-┌──────────────┐   │
-│Smoke Tester  │──┘   (mobile-mcp runtime validation)
-└──────────────┘`}</pre>
+                <pre className="text-zinc-300">{`┌─────────────────────────┐    ┌───────────┐    ┌──────────┐    ┌────────────┐
+│  Planning Team Lead     │──→│ Developer │──→│ Reviewer │──→│ QA Engineer│
+│  (4 teammates parallel) │    └───────────┘    └──────────┘    └────────────┘
+└─────────────────────────┘`}</pre>
               </div>
 
               {/* Agent descriptions */}
               <div className="grid gap-3">
                 <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
-                  <h3 className="font-semibold text-zinc-100 mb-1">UX Planner</h3>
-                  <p className="text-zinc-400">Analyzes user experience, screen flows, and accessibility. Identifies problems and improvements from the user&apos;s perspective.</p>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
-                  <h3 className="font-semibold text-zinc-100 mb-1">Tech Planner</h3>
-                  <p className="text-zinc-400">Analyzes architecture, performance, security, and technical debt. Evaluates code quality and technical risk.</p>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
-                  <h3 className="font-semibold text-zinc-100 mb-1">Biz Planner</h3>
-                  <p className="text-zinc-400">Analyzes business impact, user value, and priorities. Makes decisions based on ROI and strategic value.</p>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
-                  <h3 className="font-semibold text-zinc-100 mb-1">App Smoke Tester</h3>
-                  <p className="text-zinc-400">Launches the app via mobile-mcp and autonomously navigates every screen to verify basic functionality works. Finds crashes, broken navigation, and non-rendering screens.</p>
-                </div>
-                <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
-                  <h3 className="font-semibold text-zinc-100 mb-1">Planning Moderator</h3>
-                  <p className="text-zinc-400">Synthesizes opinions from all planners and smoke test results, resolves conflicts, and produces the final specification.</p>
+                  <h3 className="font-semibold text-zinc-100 mb-1">Planning Team Lead</h3>
+                  <p className="text-zinc-400">Creates a team of 4 specialist planners (UX, Analyzer, Music Domain, Test Runner) that analyze the project in parallel. Synthesizes their findings, resolves conflicts, and produces the final specification.</p>
                 </div>
                 <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
                   <h3 className="font-semibold text-zinc-100 mb-1">Developer</h3>
-                  <p className="text-zinc-400">Implements code based on the finalized spec. Sends feedback to the Planning Moderator if technical blockers are found.</p>
+                  <p className="text-zinc-400">Implements code based on the finalized spec. Sends feedback to the Planning Team Lead if technical blockers are found.</p>
                 </div>
                 <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
                   <h3 className="font-semibold text-zinc-100 mb-1">Reviewer</h3>
@@ -244,26 +223,22 @@ export default function AutoGuidePage() {
                   </li>
                   <li className="flex gap-3">
                     <span className="shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white">2</span>
-                    <span><strong className="text-zinc-100">Parallel Planner Analysis</strong> - UX/Tech/Biz planners analyze the code simultaneously</span>
+                    <span><strong className="text-zinc-100">Planning Team Analysis</strong> - Team Lead spawns 4 specialist planners that analyze in parallel, then synthesizes results into a final specification</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white">3</span>
-                    <span><strong className="text-zinc-100">Planning Moderator Synthesis</strong> - Synthesizes analysis results into a final specification</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white">4</span>
                     <span><strong className="text-zinc-100">Developer Implementation</strong> - Writes code according to the specification</span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white">5</span>
+                    <span className="shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white">4</span>
                     <span><strong className="text-zinc-100">Reviewer Review</strong> - Reviews and approves/rejects the code</span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white">6</span>
+                    <span className="shrink-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold text-white">5</span>
                     <span><strong className="text-zinc-100">QA Test</strong> - Verifies functionality with E2E tests</span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="shrink-0 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-xs font-bold text-white">7</span>
+                    <span className="shrink-0 w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-xs font-bold text-white">6</span>
                     <span><strong className="text-zinc-100">Auto commit on success</strong> / rollback and retry on failure (up to N times)</span>
                   </li>
                 </ol>
@@ -280,11 +255,11 @@ export default function AutoGuidePage() {
             <SectionHeading id="planning-meeting" number={4} title="Planning Meeting (Parallel Planning)" />
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
-                A unique aspect of autonomous mode is that <strong className="text-zinc-100">3 specialist planners</strong> analyze the project simultaneously.
+                A unique aspect of autonomous mode is that <strong className="text-zinc-100">4 specialist teammates</strong> analyze the project simultaneously.
                 Because each looks through a different lens at the same code, they can find issues that a single analysis might miss.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700 text-center">
                   <div className="text-2xl mb-2">&#x1F3A8;</div>
                   <h3 className="font-semibold text-zinc-100 mb-1">UX Perspective</h3>
@@ -292,18 +267,23 @@ export default function AutoGuidePage() {
                 </div>
                 <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700 text-center">
                   <div className="text-2xl mb-2">&#x2699;</div>
-                  <h3 className="font-semibold text-zinc-100 mb-1">Technical Perspective</h3>
+                  <h3 className="font-semibold text-zinc-100 mb-1">Technical (Analyzer)</h3>
                   <p className="text-xs text-zinc-400">Architecture, performance bottlenecks, security vulnerabilities, error handling, tech debt</p>
                 </div>
                 <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700 text-center">
-                  <div className="text-2xl mb-2">&#x1F4C8;</div>
-                  <h3 className="font-semibold text-zinc-100 mb-1">Business Perspective</h3>
-                  <p className="text-xs text-zinc-400">User value, business impact, competitiveness, churn prevention, growth contribution</p>
+                  <div className="text-2xl mb-2">&#x1F3B5;</div>
+                  <h3 className="font-semibold text-zinc-100 mb-1">Music Domain</h3>
+                  <p className="text-xs text-zinc-400">Music domain logic, audio handling, playlist flows, metadata accuracy</p>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700 text-center">
+                  <div className="text-2xl mb-2">&#x1F9EA;</div>
+                  <h3 className="font-semibold text-zinc-100 mb-1">Test Runner</h3>
+                  <p className="text-xs text-zinc-400">Test coverage, test quality, edge cases, regression detection</p>
                 </div>
               </div>
 
               <p>
-                The Planning Moderator follows these principles when synthesizing the results from all 3 planners:
+                The Team Lead follows these principles when synthesizing the results from all 4 teammates:
               </p>
               <div className="bg-zinc-800 rounded-lg p-4 border border-zinc-700">
                 <h3 className="font-semibold text-zinc-100 mb-2">Conflict Resolution Priority</h3>
@@ -326,14 +306,14 @@ export default function AutoGuidePage() {
             <div className="space-y-4 text-sm leading-relaxed">
               <p>
                 The Developer may discover technical issues with the specification during implementation.
-                In that case, a <strong className="text-zinc-100">&quot;BLOCKER&quot;</strong> signal is sent to provide feedback to the Planning Moderator.
+                In that case, a <strong className="text-zinc-100">&quot;BLOCKER&quot;</strong> signal is sent to provide feedback to the Planning Team Lead.
               </p>
 
               <div className="bg-zinc-950 rounded-lg p-5 border border-zinc-700 font-mono text-xs">
                 <pre className="text-zinc-300">{`Developer: "This feature cannot be implemented with the current DB schema"
     |
     v  BLOCKER raised
-Planning Moderator: Revises spec (proposes alternative)
+Planning Team Lead: Revises spec (proposes alternative)
     |
     v  Revised spec delivered
 Developer: Retries with revised spec

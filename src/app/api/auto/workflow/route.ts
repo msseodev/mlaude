@@ -81,7 +81,7 @@ export async function GET() {
     feedbackLoops: [
       {
         from: 'developer',
-        to: 'planning_moderator',
+        to: 'planning_team_lead',
         label: '기획-개발 리뷰',
         condition: 'Developer 블로커 발생 시',
       },

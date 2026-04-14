@@ -16,26 +16,18 @@ export interface KnowledgeContext {
 
 // Agent role -> relevant knowledge categories
 const ROLE_KNOWLEDGE_CATEGORIES: Record<string, KnowledgeCategory[]> = {
-  ux_planner: ['architecture_decision', 'known_limitation'],
-  tech_planner: ['architecture_decision', 'known_limitation'],
-  biz_planner: ['architecture_decision', 'known_limitation'],
-  planning_moderator: ['architecture_decision', 'known_limitation'],
+  planning_team_lead: ['architecture_decision', 'known_limitation'],
   developer: ['coding_convention', 'resolved_pattern'],
   test_engineer: ['coding_convention', 'resolved_pattern'],
-  reviewer: ['coding_convention'],
-  qa_engineer: ['resolved_pattern'],
+  smoke_tester: ['resolved_pattern'],
 };
 
 // Agent role -> relevant team message categories
 const ROLE_MESSAGE_CATEGORIES: Record<string, TeamMessageCategory[]> = {
-  ux_planner: ['architecture', 'warning', 'limitation'],
-  tech_planner: ['architecture', 'warning', 'limitation'],
-  biz_planner: ['architecture', 'warning', 'limitation'],
-  planning_moderator: ['architecture', 'warning', 'limitation'],
+  planning_team_lead: ['architecture', 'warning', 'limitation'],
   developer: ['convention', 'pattern', 'warning'],
   test_engineer: ['convention', 'pattern', 'warning'],
-  reviewer: ['convention'],
-  qa_engineer: ['pattern'],
+  smoke_tester: ['pattern', 'warning'],
 };
 
 export class KnowledgeManager {

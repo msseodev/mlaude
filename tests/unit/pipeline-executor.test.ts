@@ -406,42 +406,43 @@ describe('filterAgentsByPipelineType', () => {
   });
 
   const allAgents: AutoAgent[] = [
-    makeAgent('product_designer', 0.5),
-    makeAgent('planning_moderator', 0.6),
+    makeAgent('planning_team_lead', 0.5),
     makeAgent('developer', 1.0),
     makeAgent('test_engineer', 1.0),
-    makeAgent('reviewer', 2.0),
-    makeAgent('qa_engineer', 3.0),
+    makeAgent('smoke_tester', 3.5),
   ];
 
-  it('discovery pipeline filters out test_engineer', () => {
+  it('discovery pipeline keeps planning, developer, smoke_tester; drops only test_engineer', () => {
     const result = filterAgentsByPipelineType(allAgents, 'discovery');
-    const names = result.map(a => a.name);
-    expect(names).toContain('product_designer');
-    expect(names).toContain('planning_moderator');
-    expect(names).toContain('developer');
-    expect(names).toContain('reviewer');
-    expect(names).toContain('qa_engineer');
-    expect(names).not.toContain('test_engineer');
+    const names = result.map(a => a.name).sort();
+    expect(names).toEqual(['developer', 'planning_team_lead', 'smoke_tester']);
   });
 
-  it('fix pipeline returns only developer and reviewer (QA skipped)', () => {
+  it('fix pipeline returns only developer and smoke_tester', () => {
     const result = filterAgentsByPipelineType(allAgents, 'fix');
-    const names = result.map(a => a.name);
-    expect(names).toEqual(['developer', 'reviewer']);
+    const names = result.map(a => a.name).sort();
+    expect(names).toEqual(['developer', 'smoke_tester']);
   });
 
-  it('test_fix pipeline returns only test_engineer (QA skipped)', () => {
+  it('fix pipeline omits smoke_tester if it is not in the enabled set', () => {
+    const noSmoke = allAgents.filter(a => a.name !== 'smoke_tester');
+    const result = filterAgentsByPipelineType(noSmoke, 'fix');
+    const names = result.map(a => a.name);
+    expect(names).toEqual(['developer']);
+  });
+
+  it('test_fix pipeline returns only test_engineer', () => {
     const result = filterAgentsByPipelineType(allAgents, 'test_fix');
     const names = result.map(a => a.name);
     expect(names).toEqual(['test_engineer']);
   });
 
-  it('default (undefined) behaves like discovery', () => {
+  it('default (undefined) behaves like discovery — drops test_engineer only', () => {
     const result = filterAgentsByPipelineType(allAgents, undefined);
     const names = result.map(a => a.name);
     expect(names).toContain('developer');
-    expect(names).toContain('product_designer');
+    expect(names).toContain('planning_team_lead');
+    expect(names).toContain('smoke_tester');
     expect(names).not.toContain('test_engineer');
   });
 });

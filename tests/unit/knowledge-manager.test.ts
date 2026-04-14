@@ -88,7 +88,7 @@ describe('KnowledgeManager', () => {
       expect(result.wontFixSummary).toBe('');
     });
 
-    it('filters knowledge entries by planner role — sees architecture_decision and known_limitation', () => {
+    it('filters knowledge entries by planning_team_lead role — sees architecture_decision and known_limitation', () => {
       mockGetKnowledgeEntries.mockReturnValue([
         makeKnowledgeEntry({ category: 'architecture_decision', title: 'Use MVC', content: 'Follow MVC pattern' }),
         makeKnowledgeEntry({ id: 'ke-2', category: 'coding_convention', title: 'Use camelCase', content: 'All variables in camelCase' }),
@@ -98,7 +98,7 @@ describe('KnowledgeManager', () => {
       mockGetTeamMessages.mockReturnValue([]);
       mockGetCrossSessionFindings.mockReturnValue([]);
 
-      const result = manager.buildKnowledgeContext('tech_planner');
+      const result = manager.buildKnowledgeContext('planning_team_lead');
 
       expect(result.knowledge).toContain('Use MVC');
       expect(result.knowledge).toContain('No SSR');
@@ -124,23 +124,7 @@ describe('KnowledgeManager', () => {
       expect(result.knowledge).not.toContain('No SSR');
     });
 
-    it('filters knowledge entries by reviewer role — sees coding_convention only', () => {
-      mockGetKnowledgeEntries.mockReturnValue([
-        makeKnowledgeEntry({ category: 'architecture_decision', title: 'Use MVC', content: 'Follow MVC pattern' }),
-        makeKnowledgeEntry({ id: 'ke-2', category: 'coding_convention', title: 'Use camelCase', content: 'All variables in camelCase' }),
-        makeKnowledgeEntry({ id: 'ke-3', category: 'resolved_pattern', title: 'Fix login', content: 'Login fix pattern' }),
-      ]);
-      mockGetTeamMessages.mockReturnValue([]);
-      mockGetCrossSessionFindings.mockReturnValue([]);
-
-      const result = manager.buildKnowledgeContext('reviewer');
-
-      expect(result.knowledge).toContain('Use camelCase');
-      expect(result.knowledge).not.toContain('Use MVC');
-      expect(result.knowledge).not.toContain('Fix login');
-    });
-
-    it('filters knowledge entries by qa_engineer role — sees resolved_pattern only', () => {
+    it('filters knowledge entries by smoke_tester role — sees resolved_pattern only', () => {
       mockGetKnowledgeEntries.mockReturnValue([
         makeKnowledgeEntry({ category: 'coding_convention', title: 'Use camelCase', content: 'All variables in camelCase' }),
         makeKnowledgeEntry({ id: 'ke-2', category: 'resolved_pattern', title: 'Fix login', content: 'Login fix pattern' }),
@@ -148,7 +132,7 @@ describe('KnowledgeManager', () => {
       mockGetTeamMessages.mockReturnValue([]);
       mockGetCrossSessionFindings.mockReturnValue([]);
 
-      const result = manager.buildKnowledgeContext('qa_engineer');
+      const result = manager.buildKnowledgeContext('smoke_tester');
 
       expect(result.knowledge).toContain('Fix login');
       expect(result.knowledge).not.toContain('Use camelCase');
@@ -188,7 +172,7 @@ describe('KnowledgeManager', () => {
       expect(devResult.teamMessages).not.toContain('Use microservices');
 
       // Planner sees architecture, warning, limitation
-      const plannerResult = manager.buildKnowledgeContext('tech_planner');
+      const plannerResult = manager.buildKnowledgeContext('planning_team_lead');
       expect(plannerResult.teamMessages).toContain('Use microservices');
       expect(plannerResult.teamMessages).toContain('Watch for memory leaks');
       expect(plannerResult.teamMessages).not.toContain('Use strict mode');
@@ -204,7 +188,7 @@ describe('KnowledgeManager', () => {
         makeFinding({ title: 'Cannot fix memory leak', status: 'wont_fix', description: 'Third-party library issue' }),
       ]);
 
-      const result = manager.buildKnowledgeContext('tech_planner');
+      const result = manager.buildKnowledgeContext('planning_team_lead');
 
       expect(result.wontFixSummary).toContain('Cannot fix memory leak');
       expect(result.wontFixSummary).toContain('Third-party library issue');

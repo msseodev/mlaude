@@ -59,7 +59,25 @@ export class FindingExtractor {
       const accepted: ExtractedFinding[] = [];
       for (const f of validated) {
         if (this.isDuplicate(f, existingFindings ?? [])) continue;
-        if (this.isDuplicateOfCrossSession(f, crossSessionFindings ?? [])) continue;
+
+        // Cross-session dedup — with a regression bypass for bugs.
+        // If the same bug title was previously marked 'resolved' but the agent is
+        // reporting it again, that's a regression, not a duplicate. Let it through
+        // as P0 with a REGRESSION: prefix so downstream cycles don't silently skip it.
+        // wont_fix findings are intentional and still dedup'd.
+        const csMatch = this.findCrossSessionMatch(f, crossSessionFindings ?? []);
+        if (csMatch) {
+          if (f.category === 'bug' && csMatch.status === 'resolved') {
+            f.priority = 'P0';
+            if (!f.title.toUpperCase().startsWith('REGRESSION:')) {
+              f.title = `REGRESSION: ${f.title}`;
+            }
+            // fall through — let it join accepted
+          } else {
+            continue; // not a bug regression: stay dedup'd
+          }
+        }
+
         if (this.isDuplicateOfBatch(f, accepted)) continue;
         accepted.push(f);
       }
@@ -168,16 +186,18 @@ export class FindingExtractor {
   }
 
   /**
-   * Check if a finding is a duplicate of a cross-session finding (resolved or wont_fix).
-   * Uses the same title similarity check as isDuplicate().
+   * Find the matching cross-session finding (resolved or wont_fix) if any.
+   * Returns the matched AutoFinding so the caller can inspect status — bug
+   * regressions against resolved findings are treated differently from dedup
+   * against wont_fix.
    */
-  private isDuplicateOfCrossSession(finding: ExtractedFinding, crossSessionFindings: AutoFinding[]): boolean {
+  private findCrossSessionMatch(finding: ExtractedFinding, crossSessionFindings: AutoFinding[]): AutoFinding | null {
     const normalizedTitle = finding.title.toLowerCase().trim();
-    return crossSessionFindings.some(e => {
+    return crossSessionFindings.find(e => {
       const existingTitle = e.title.toLowerCase().trim();
       return existingTitle === normalizedTitle ||
              this.similarity(existingTitle, normalizedTitle) > 0.8;
-    });
+    }) ?? null;
   }
 
   /**

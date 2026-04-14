@@ -11,13 +11,11 @@ import {
   getAutoUserPrompts,
   getAutoFindings,
   createAutoFinding,
-  getAutoCycle,
   getCEORequests,
   createCEORequest,
 } from './db';
 import { FindingExtractor } from './finding-extractor';
 import { getCrossSessionFindings } from './memory-db';
-import { GitManager } from './git-manager';
 import { StateManager } from './state-manager';
 import { buildAgentContext, StructuredAgentOutput } from './agent-context-builder';
 import { parseAgentOutput, parseCEORequests, parseTeamMessages } from './output-parser';
@@ -318,16 +316,6 @@ export class PipelineExecutor {
           timestamp: new Date().toISOString(),
         });
 
-        // Build git diff for reviewer
-        let gitDiff: string | undefined;
-        if (agent.name === 'reviewer') {
-          const gitManager = new GitManager(this.session.target_project);
-          const cycle = getAutoCycle(this.cycleId);
-          if (cycle?.git_checkpoint) {
-            gitDiff = await gitManager.getDiff(cycle.git_checkpoint);
-          }
-        }
-
         const knowledgeCtx = settings.memory_enabled
           ? knowledgeManager.buildKnowledgeContext(agent.name, settings.max_knowledge_context_chars)
           : { knowledge: '', teamMessages: '', wontFixSummary: '' };
@@ -338,7 +326,6 @@ export class PipelineExecutor {
           previousOutputs,
           structuredOutputs,
           finding: this.finding,
-          gitDiff,
           screenFrames: PLANNER_AGENT_NAMES.has(agent.name) && screenCapture.frames.length > 0
             ? screenCapture.frames
             : undefined,
@@ -593,58 +580,14 @@ export class PipelineExecutor {
           }
         }
 
-        // Reviewer <-> Developer loop
-        if (agent.name === 'reviewer' && result.agentRun.status === 'completed') {
-          const reviewResult = parseReviewOutput(result.agentRun.output);
-          if (!reviewResult.approved) {
-            const loopResult = await this.reviewerDeveloperLoop(
-              agents,
-              settings.review_max_iterations,
-              userPromptText,
-              stateContext,
-              previousOutputs,
-              reviewResult.feedback,
-              structuredOutputs,
-            );
-
-            allAgentRuns.push(...loopResult.additionalRuns);
-            totalCostUsd += loopResult.additionalCost;
-            totalDurationMs += loopResult.additionalDuration;
-
-            if (loopResult.latestDeveloperOutput) {
-              previousOutputs.set('Developer', loopResult.latestDeveloperOutput);
-            }
-
-            if (loopResult.abortedByAuthError) {
-              return {
-                success: false,
-                agentRuns: allAgentRuns,
-                finalOutput: '',
-                totalCostUsd,
-                totalDurationMs,
-                abortedByAuthError: true,
-              };
-            }
-
-            if (loopResult.abortedByRateLimit) {
-              return {
-                success: false,
-                agentRuns: allAgentRuns,
-                finalOutput: '',
-                totalCostUsd,
-                totalDurationMs,
-                abortedByRateLimit: true,
-                rateLimitInfo: loopResult.rateLimitInfo,
-              };
-            }
-          }
-        }
       }
     }
 
-    // Determine QA result
+    // Determine QA / smoke test result.
+    // The qa_engineer agent has been removed; smoke_tester now produces the same JSON
+    // shape (parseQAOutput) and serves as the gating pass/fail signal.
     const qaRun = allAgentRuns.find(r =>
-      r.agent_name === 'QA Engineer' || r.agent_name === 'qa_engineer'
+      r.agent_name === 'Smoke Tester' || r.agent_name === 'smoke_tester'
     );
     let qaResult: PipelineResult['qaResult'];
     if (qaRun && qaRun.status === 'completed') {
@@ -871,125 +814,6 @@ export class PipelineExecutor {
     });
   }
 
-  private async reviewerDeveloperLoop(
-    agents: AutoAgent[],
-    maxIterations: number,
-    userPrompt: string,
-    stateContext: string,
-    previousOutputs: Map<string, string>,
-    initialFeedback: string,
-    structuredOutputs: StructuredAgentOutput[],
-  ): Promise<{
-    additionalRuns: AutoAgentRun[];
-    additionalCost: number;
-    additionalDuration: number;
-    latestDeveloperOutput?: string;
-    abortedByRateLimit?: boolean;
-    rateLimitInfo?: RateLimitInfo;
-    abortedByAuthError?: boolean;
-  }> {
-    const developer = agents.find(a => a.name === 'developer');
-    const reviewer = agents.find(a => a.name === 'reviewer');
-    if (!developer || !reviewer) {
-      return { additionalRuns: [], additionalCost: 0, additionalDuration: 0 };
-    }
-
-    const runs: AutoAgentRun[] = [];
-    let totalCost = 0;
-    let totalDuration = 0;
-    let feedback = initialFeedback;
-    let latestDevOutput: string | undefined;
-
-    for (let i = 0; i < maxIterations; i++) {
-      if (this.aborted) break;
-
-      // Emit review_iteration
-      this.emit({
-        type: 'review_iteration',
-        data: { iteration: i + 1, maxIterations, feedback },
-        timestamp: new Date().toISOString(),
-      });
-
-      // Re-run Developer with feedback
-      const devContext = buildAgentContext(developer, {
-        userPrompt: isPlannerAgent(developer) ? userPrompt : '',
-        sessionState: stateContext,
-        previousOutputs,
-        structuredOutputs,
-        finding: this.finding,
-        reviewFeedback: feedback,
-      });
-
-      this.emit({
-        type: 'agent_start',
-        data: { agentId: developer.id, agentName: developer.display_name, cycleId: this.cycleId },
-        timestamp: new Date().toISOString(),
-      });
-
-      const devResult = await this.runSingleAgent(developer, devContext, i + 2);
-      if (devResult.authError) {
-        return { additionalRuns: runs, additionalCost: totalCost, additionalDuration: totalDuration, abortedByAuthError: true };
-      }
-      if (devResult.rateLimited) {
-        return { additionalRuns: runs, additionalCost: totalCost, additionalDuration: totalDuration, abortedByRateLimit: true, rateLimitInfo: devResult.rateLimitInfo };
-      }
-      runs.push(devResult.agentRun);
-      totalCost += devResult.agentRun.cost_usd ?? 0;
-      totalDuration += devResult.agentRun.duration_ms ?? 0;
-      latestDevOutput = devResult.agentRun.output;
-      previousOutputs.set(developer.display_name, devResult.agentRun.output);
-
-      this.emit({
-        type: devResult.agentRun.status === 'completed' ? 'agent_complete' : 'agent_failed',
-        data: { agentId: developer.id, agentName: developer.display_name, status: devResult.agentRun.status },
-        timestamp: new Date().toISOString(),
-      });
-
-      // Re-run Reviewer
-      const gitManager = new GitManager(this.session.target_project);
-      const cycle = getAutoCycle(this.cycleId);
-      const gitDiff = cycle?.git_checkpoint ? await gitManager.getDiff(cycle.git_checkpoint) : '';
-
-      const reviewContext = buildAgentContext(reviewer, {
-        userPrompt: isPlannerAgent(reviewer) ? userPrompt : '',
-        sessionState: stateContext,
-        previousOutputs,
-        structuredOutputs,
-        gitDiff,
-      });
-
-      this.emit({
-        type: 'agent_start',
-        data: { agentId: reviewer.id, agentName: reviewer.display_name, cycleId: this.cycleId },
-        timestamp: new Date().toISOString(),
-      });
-
-      const reviewResult = await this.runSingleAgent(reviewer, reviewContext, i + 2);
-      if (reviewResult.authError) {
-        return { additionalRuns: runs, additionalCost: totalCost, additionalDuration: totalDuration, abortedByAuthError: true };
-      }
-      if (reviewResult.rateLimited) {
-        return { additionalRuns: runs, additionalCost: totalCost, additionalDuration: totalDuration, abortedByRateLimit: true, rateLimitInfo: reviewResult.rateLimitInfo };
-      }
-      runs.push(reviewResult.agentRun);
-      totalCost += reviewResult.agentRun.cost_usd ?? 0;
-      totalDuration += reviewResult.agentRun.duration_ms ?? 0;
-
-      this.emit({
-        type: reviewResult.agentRun.status === 'completed' ? 'agent_complete' : 'agent_failed',
-        data: { agentId: reviewer.id, agentName: reviewer.display_name, status: reviewResult.agentRun.status },
-        timestamp: new Date().toISOString(),
-      });
-
-      const parsed = parseReviewOutput(reviewResult.agentRun.output);
-      if (parsed.approved) break;
-
-      feedback = parsed.feedback;
-    }
-
-    return { additionalRuns: runs, additionalCost: totalCost, additionalDuration: totalDuration, latestDeveloperOutput: latestDevOutput };
-  }
-
   /**
    * Generic feedback loop between a "feedback agent" (Planning Moderator or Product Designer)
    * and the Developer. This replaces the old designerDeveloperLoop with a more generic approach.
@@ -1172,8 +996,11 @@ export function filterAgentsByPipelineType(
   const effectiveType = pipelineType ?? 'discovery';
   switch (effectiveType) {
     case 'fix': {
-      // QA skipped for fix cycles — build_command/test_command in cycle-engine handles verification
-      const fixNames = new Set(['developer', 'reviewer']);
+      // Reviewer dropped: the developer agent invokes `tdd-flutter --auto`, which runs
+      // /review-uncommit (4 parallel reviewers) + flutter-coder fix internally. A second
+      // standalone reviewer step would just duplicate that work.
+      // smoke_tester remains for real-device verification.
+      const fixNames = new Set(['developer', 'smoke_tester']);
       return enabledAgents.filter(a => fixNames.has(a.name));
     }
     case 'test_fix': {
@@ -1182,9 +1009,11 @@ export function filterAgentsByPipelineType(
       return enabledAgents.filter(a => testFixNames.has(a.name));
     }
     case 'discovery':
-    default:
-      // QA runs only in discovery for full UI testing
+    default: {
+      // Discovery runs planning_team_lead → developer (tdd-flutter --auto) → smoke_tester.
+      // Only test_engineer is excluded; reviewer + qa_engineer no longer exist.
       return enabledAgents.filter(a => a.name !== 'test_engineer');
+    }
   }
 }
 

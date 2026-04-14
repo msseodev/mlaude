@@ -86,6 +86,8 @@ export type ClaudeEvent = ClaudeSystemEvent | ClaudeAssistantEvent | ClaudeStrea
 export type SSEEventType =
   | 'text_delta'
   | 'tool_start'
+  | 'tool_input'
+  | 'tool_result'
   | 'tool_end'
   | 'prompt_start'
   | 'prompt_complete'
@@ -210,6 +212,8 @@ export interface ChatStatus {
 export type ChatSSEEventType =
   | 'text_delta'
   | 'tool_start'
+  | 'tool_input'
+  | 'tool_result'
   | 'tool_end'
   | 'message_start'
   | 'message_complete'

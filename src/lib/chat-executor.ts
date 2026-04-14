@@ -14,6 +14,8 @@ export class ChatExecutor {
   private lastDurationMs: number | null = null;
   private inToolUse: boolean = false;
   private currentToolName: string = 'unknown';
+  private currentToolId: string = '';
+  private accumulatedToolInput: string = '';
   private hasReceivedStreamingDeltas: boolean = false;
 
   constructor(
@@ -49,6 +51,7 @@ export class ChatExecutor {
     this.lastCostUsd = null;
     this.lastDurationMs = null;
     this.inToolUse = false;
+    this.accumulatedToolInput = '';
     this.hasReceivedStreamingDeltas = false;
 
     const resolvedBinary = this.resolveBinary(this.claudeBinary);
@@ -143,16 +146,24 @@ export class ChatExecutor {
     });
   }
 
-  private processEvent(event: ClaudeEvent): void {
+  private processEvent(rawEvent: ClaudeEvent): void {
     if (this.killed) return;
+
+    // Unwrap stream_event wrapper
+    let event = rawEvent;
+    if (rawEvent.type === 'stream_event' && 'event' in rawEvent) {
+      event = (rawEvent as { type: string; event: ClaudeEvent }).event;
+    }
 
     switch (event.type) {
       case 'content_block_delta': {
-        const delta = (event as { delta?: { type?: string; text?: string } }).delta;
+        const delta = (event as { delta?: { type?: string; text?: string; partial_json?: string } }).delta;
         if (delta?.type === 'text_delta' && delta.text) {
           this.hasReceivedStreamingDeltas = true;
           this.accumulatedOutput += delta.text;
           this.emitSSE('text_delta', { text: delta.text });
+        } else if (delta?.type === 'input_json_delta' && delta.partial_json !== undefined) {
+          this.accumulatedToolInput += delta.partial_json;
         }
         break;
       }
@@ -162,16 +173,52 @@ export class ChatExecutor {
         if (block?.type === 'tool_use') {
           this.inToolUse = true;
           this.currentToolName = block.name ?? 'unknown';
-          this.emitSSE('tool_start', { tool: this.currentToolName, id: block.id ?? '' });
+          this.currentToolId = block.id ?? '';
+          this.accumulatedToolInput = '';
+          this.emitSSE('tool_start', { tool: this.currentToolName, id: this.currentToolId });
         }
         break;
       }
 
       case 'content_block_stop': {
         if (this.inToolUse) {
+          let parsedInput: Record<string, unknown> = {};
+          try {
+            parsedInput = JSON.parse(this.accumulatedToolInput);
+          } catch {
+            if (this.accumulatedToolInput) {
+              parsedInput = { _raw: this.accumulatedToolInput };
+            }
+          }
+          this.emitSSE('tool_input', { tool: this.currentToolName, id: this.currentToolId, input: parsedInput });
+
           this.inToolUse = false;
           this.emitSSE('tool_end', { tool: this.currentToolName });
           this.currentToolName = 'unknown';
+          this.currentToolId = '';
+          this.accumulatedToolInput = '';
+        }
+        break;
+      }
+
+      case 'user': {
+        const userEvent = rawEvent as {
+          type: string;
+          message?: { content?: Array<{ type: string; tool_use_id?: string; content?: string; is_error?: boolean }> };
+          tool_use_result?: { stdout?: string; stderr?: string; interrupted?: boolean };
+        };
+        if (userEvent.message?.content) {
+          for (const block of userEvent.message.content) {
+            if (block.type === 'tool_result') {
+              this.emitSSE('tool_result', {
+                tool_use_id: block.tool_use_id ?? '',
+                content: block.content ?? '',
+                is_error: block.is_error ?? false,
+                stdout: userEvent.tool_use_result?.stdout ?? '',
+                stderr: userEvent.tool_use_result?.stderr ?? '',
+              });
+            }
+          }
         }
         break;
       }

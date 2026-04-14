@@ -131,20 +131,32 @@ function RunPageContent() {
           });
           break;
         }
-        case 'tool_start': {
-          const name = (event.data.tool as string) ?? 'tool';
-          setOutput((prev) => [
-            ...prev,
-            { type: 'tool_start', text: `--- Tool: ${name} ---` },
-          ]);
+        case 'tool_start':
+        case 'tool_end':
+          // Handled visually via tool_input and tool_result instead
+          break;
+        case 'tool_input': {
+          const tool = (event.data.tool as string) ?? 'unknown';
+          const input = (event.data.input as Record<string, unknown>) ?? {};
+          const summary = formatToolSummary(tool, input);
+          setOutput((prev) => {
+            const next = [...prev, { type: 'tool_call', text: `\u2588 ${tool}(${summary})` }];
+            return next.length > MAX_OUTPUT_ENTRIES ? next.slice(-MAX_OUTPUT_ENTRIES) : next;
+          });
           break;
         }
-        case 'tool_end': {
-          const name = (event.data.tool as string) ?? 'tool';
-          setOutput((prev) => [
-            ...prev,
-            { type: 'tool_end', text: `--- End: ${name} ---` },
-          ]);
+        case 'tool_result': {
+          const content = (event.data.content as string) ?? (event.data.stdout as string) ?? '';
+          const isError = (event.data.is_error as boolean) ?? false;
+          const stderr = (event.data.stderr as string) ?? '';
+          const display = isError && stderr ? stderr : content;
+          const truncated = display.length > 1000 ? display.slice(0, 1000) + '...' : display;
+          if (truncated) {
+            setOutput((prev) => {
+              const next = [...prev, { type: 'tool_result', text: `  \u23BF  ${truncated}` }];
+              return next.length > MAX_OUTPUT_ENTRIES ? next.slice(-MAX_OUTPUT_ENTRIES) : next;
+            });
+          }
           break;
         }
         case 'prompt_start': {
@@ -549,6 +561,37 @@ function RateLimitBanner({
   );
 }
 
+// --- Tool Display Helpers ---
+
+function formatToolSummary(tool: string, input: Record<string, unknown>): string {
+  let summary = '';
+  switch (tool) {
+    case 'Bash': summary = (input.command as string) ?? ''; break;
+    case 'Read': summary = (input.file_path as string) ?? ''; break;
+    case 'Write': summary = (input.file_path as string) ?? ''; break;
+    case 'Edit': summary = (input.file_path as string) ?? ''; break;
+    case 'Grep': {
+      const pattern = (input.pattern as string) ?? '';
+      const path = (input.path as string) ?? '';
+      summary = path ? `${pattern}, ${path}` : pattern;
+      break;
+    }
+    case 'Glob': summary = (input.pattern as string) ?? ''; break;
+    case 'Agent': summary = (input.description as string) ?? ''; break;
+    case 'WebSearch': summary = (input.query as string) ?? ''; break;
+    case 'WebFetch': summary = (input.url as string) ?? ''; break;
+    default: {
+      const json = JSON.stringify(input);
+      summary = json.length > 120 ? json.slice(0, 120) + '...' : json;
+    }
+  }
+  // Truncate long summaries
+  if (summary.length > 200) {
+    summary = summary.slice(0, 200) + '...';
+  }
+  return summary;
+}
+
 // --- OutputViewer ---
 
 function OutputViewer({
@@ -573,19 +616,30 @@ function OutputViewer({
     autoScrollRef.current = atBottom;
   }
 
-  const colorForType = (type: string) => {
-    switch (type) {
-      case 'tool_start':
-      case 'tool_end':
-        return 'text-blue-400';
+  const renderEntry = (entry: { type: string; text: string }, i: number) => {
+    switch (entry.type) {
+      case 'text':
+        return <MarkdownOutput key={i} text={entry.text} />;
+      case 'tool_call':
+        return (
+          <div key={i} className="my-1">
+            <span className="text-cyan-400 font-semibold">{entry.text}</span>
+          </div>
+        );
+      case 'tool_result':
+        return (
+          <div key={i} className="mb-2 ml-2 text-gray-400 border-l-2 border-gray-600 pl-2 text-xs leading-relaxed" style={{ maxHeight: 300, overflow: 'auto' }}>
+            <pre className="whitespace-pre-wrap">{entry.text}</pre>
+          </div>
+        );
       case 'prompt_start':
-        return 'text-green-400 font-bold';
+        return <span key={i} className="text-green-400 font-bold">{entry.text}</span>;
       case 'prompt_complete':
-        return 'text-green-400';
+        return <span key={i} className="text-green-400">{entry.text}</span>;
       case 'prompt_failed':
-        return 'text-red-400';
+        return <span key={i} className="text-red-400">{entry.text}</span>;
       default:
-        return 'text-gray-100';
+        return <span key={i} className="text-gray-100">{entry.text}</span>;
     }
   };
 
@@ -601,15 +655,7 @@ function OutputViewer({
           Output will appear here when the queue is running...
         </p>
       ) : (
-        entries.map((entry, i) =>
-          entry.type === 'text' ? (
-            <MarkdownOutput key={i} text={entry.text} />
-          ) : (
-            <span key={i} className={colorForType(entry.type)}>
-              {entry.text}
-            </span>
-          ),
-        )
+        entries.map((entry, i) => renderEntry(entry, i))
       )}
     </div>
   );

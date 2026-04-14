@@ -74,6 +74,7 @@ const SORT_OPTIONS: { label: string; value: string }[] = [
   { label: 'Title', value: 'title' },
   { label: 'Retries', value: 'retries' },
   { label: 'Created', value: 'created' },
+  { label: 'Resolved', value: 'resolved' },
 ];
 
 const STORAGE_KEY = 'mlaude_findings_prefs';
@@ -97,6 +98,20 @@ function formatStatusLabel(status: string): string {
 const PRIORITY_ORDER: Record<string, number> = { P0: 0, P1: 1, P2: 2, P3: 3 };
 const STATUS_ORDER: Record<string, number> = { open: 0, in_progress: 1, resolved: 2, wont_fix: 3, duplicate: 4 };
 
+/** Return ISO timestamp when the finding was resolved, or null if not yet resolved.
+ *  Uses updated_at as a proxy — when status flips to 'resolved' the finding is
+ *  expected to be terminal, so updated_at == resolved time in practice. */
+function resolvedAt(f: AutoFinding): string | null {
+  return f.status === 'resolved' ? f.updated_at : null;
+}
+
+function formatTimestamp(iso: string | null | undefined): string {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '-';
+  return d.toLocaleString();
+}
+
 function sortFindings(items: AutoFinding[], sortBy: string, sortDir: 'asc' | 'desc'): AutoFinding[] {
   const dir = sortDir === 'asc' ? 1 : -1;
   return [...items].sort((a, b) => {
@@ -107,6 +122,16 @@ function sortFindings(items: AutoFinding[], sortBy: string, sortDir: 'asc' | 'de
       case 'title': return dir * a.title.localeCompare(b.title);
       case 'retries': return dir * (a.retry_count - b.retry_count);
       case 'created': return dir * a.created_at.localeCompare(b.created_at);
+      case 'resolved': {
+        // Findings without a resolved time go to the end (regardless of dir),
+        // so users always see actionable items together.
+        const ra = resolvedAt(a);
+        const rb = resolvedAt(b);
+        if (ra === null && rb === null) return 0;
+        if (ra === null) return 1;
+        if (rb === null) return -1;
+        return dir * ra.localeCompare(rb);
+      }
       default: return 0;
     }
   });
@@ -336,6 +361,12 @@ export default function FindingsPage() {
                   <th className="px-6 py-3 font-medium text-gray-600">
                     Retries
                   </th>
+                  <th className="px-6 py-3 font-medium text-gray-600 whitespace-nowrap">
+                    Created
+                  </th>
+                  <th className="px-6 py-3 font-medium text-gray-600 whitespace-nowrap">
+                    Resolved
+                  </th>
                   <th className="px-6 py-3 font-medium text-gray-600">
                     Actions
                   </th>
@@ -399,6 +430,12 @@ export default function FindingsPage() {
                     <td className="px-6 py-3 text-gray-600">
                       {finding.retry_count}/{finding.max_retries}
                     </td>
+                    <td className="px-6 py-3 text-xs text-gray-500 whitespace-nowrap" title={finding.created_at}>
+                      {formatTimestamp(finding.created_at)}
+                    </td>
+                    <td className="px-6 py-3 text-xs text-gray-500 whitespace-nowrap" title={resolvedAt(finding) ?? ''}>
+                      {formatTimestamp(resolvedAt(finding))}
+                    </td>
                     <td className="px-6 py-3">
                       <Button
                         variant="danger"
@@ -460,6 +497,18 @@ export default function FindingsPage() {
                 <span className="text-gray-500">Retries:</span>{' '}
                 <span className="text-gray-900">
                   {selectedFinding.retry_count}/{selectedFinding.max_retries}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Created:</span>{' '}
+                <span className="text-gray-900" title={selectedFinding.created_at}>
+                  {formatTimestamp(selectedFinding.created_at)}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Resolved:</span>{' '}
+                <span className="text-gray-900" title={resolvedAt(selectedFinding) ?? ''}>
+                  {formatTimestamp(resolvedAt(selectedFinding))}
                 </span>
               </div>
               {selectedFinding.epic_id && (

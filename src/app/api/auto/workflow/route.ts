@@ -1,22 +1,32 @@
 import { NextResponse } from 'next/server';
 import { getAutoAgents, initAutoTables } from '@/lib/autonomous/db';
-import type { AutoAgent } from '@/lib/autonomous/types';
+import { filterAgentsByPipelineType } from '@/lib/autonomous/pipeline-executor';
+import type { AutoAgent, PipelineType } from '@/lib/autonomous/types';
+
+interface WorkflowAgent {
+  id: string;
+  name: string;
+  displayName: string;
+  roleDescription: string;
+  pipelineOrder: number;
+  parallelGroup: string | null;
+  enabled: boolean;
+  isBuiltin: boolean;
+  model: string;
+}
 
 interface WorkflowStep {
   type: 'parallel' | 'serial';
   order: number;
   groupName?: string;
-  agents: Array<{
-    id: string;
-    name: string;
-    displayName: string;
-    roleDescription: string;
-    pipelineOrder: number;
-    parallelGroup: string | null;
-    enabled: boolean;
-    isBuiltin: boolean;
-    model: string;
-  }>;
+  agents: WorkflowAgent[];
+}
+
+interface PipelineView {
+  pipelineType: PipelineType;
+  label: string;
+  description: string;
+  steps: WorkflowStep[];
 }
 
 function buildWorkflowSteps(agents: AutoAgent[]): WorkflowStep[] {
@@ -53,7 +63,7 @@ function buildWorkflowSteps(agents: AutoAgent[]): WorkflowStep[] {
   return steps;
 }
 
-function mapAgent(a: AutoAgent) {
+function mapAgent(a: AutoAgent): WorkflowAgent {
   return {
     id: a.id,
     name: a.name,
@@ -70,14 +80,35 @@ function mapAgent(a: AutoAgent) {
 // GET /api/auto/workflow
 export async function GET() {
   initAutoTables();
-  const agents = getAutoAgents(); // all agents, including disabled
+  const allAgents = getAutoAgents(); // includes disabled
+  const enabledAgents = allAgents.filter(a => a.enabled);
 
-  const enabledAgents = agents.filter(a => a.enabled);
-  const steps = buildWorkflowSteps(enabledAgents);
+  const pipelines: PipelineView[] = [
+    {
+      pipelineType: 'discovery',
+      label: 'Discovery (cycle 0 / forced)',
+      description:
+        'Initial cycle: planning team produces findings, then the developer agent picks the first finding and runs tdd-flutter --auto. smoke_tester verifies on a real device.',
+      steps: buildWorkflowSteps(filterAgentsByPipelineType(enabledAgents, 'discovery')),
+    },
+    {
+      pipelineType: 'fix',
+      label: 'Fix (most cycles)',
+      description:
+        'Default cycle for resolving findings. Developer invokes tdd-flutter --auto, which internally runs planner → tester → flutter-coder → /review-uncommit (4 parallel reviewers) → flutter-coder fix → flutter test/analyze. smoke_tester runs at the end on a real device.',
+      steps: buildWorkflowSteps(filterAgentsByPipelineType(enabledAgents, 'fix')),
+    },
+    {
+      pipelineType: 'test_fix',
+      label: 'Test Fix',
+      description: 'Triggered when a finding has category=test_failure. Only the test_engineer agent runs.',
+      steps: buildWorkflowSteps(filterAgentsByPipelineType(enabledAgents, 'test_fix')),
+    },
+  ];
 
   return NextResponse.json({
-    agents: agents.map(mapAgent),
-    steps,
+    agents: allAgents.map(mapAgent),
+    pipelines,
     feedbackLoops: [
       {
         from: 'developer',
@@ -86,10 +117,16 @@ export async function GET() {
         condition: 'Developer 블로커 발생 시',
       },
       {
-        from: 'reviewer',
+        from: 'developer',
         to: 'developer',
-        label: '코드 리뷰 피드백',
-        condition: 'Reviewer 미승인 시',
+        label: 'tdd-flutter 내부 review-fix',
+        condition: '/review-uncommit 후 critical/warning 발견 시 (최대 2회)',
+      },
+      {
+        from: 'smoke_tester',
+        to: 'developer',
+        label: 'Smoke 실패 → finding retry',
+        condition: 'smoke_tester가 실기기에서 PDF 렌더링 실패 보고 시',
       },
     ],
     ceoEscalation: {

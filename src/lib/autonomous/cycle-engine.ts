@@ -41,7 +41,6 @@ import { GitManager } from './git-manager';
 import { StateManager } from './state-manager';
 import { KnowledgeManager } from './knowledge-manager';
 import { KnowledgeExtractor } from './knowledge-extractor';
-import { parseAgentOutput } from './output-parser';
 import { checkUsage, getWaitTimeMs } from './usage-checker';
 import { CodebaseScanner } from './codebase-scanner';
 import type {
@@ -760,16 +759,6 @@ class CycleEngineImpl {
           }
         }
 
-        // Extract conventions from Reviewer
-        const reviewerRun = result.agentRuns.find(r => r.agent_name === 'Reviewer');
-        if (reviewerRun && reviewerRun.output) {
-          const parsed = parseAgentOutput('reviewer', reviewerRun.output);
-          const conventions = knowledgeExtractor.extractFromReviewerOutput(reviewerRun.output, parsed.structuredData);
-          for (const c of conventions) {
-            knowledgeManager.upsertKnowledge(c);
-          }
-        }
-
         // Periodic knowledge file sync
         if (this.cycleNumber > 0 && this.cycleNumber % settings.knowledge_extraction_interval === 0) {
           await knowledgeManager.syncKnowledgeFile();
@@ -1367,7 +1356,7 @@ export function buildCycleDoc(
 
   lines.push('', '## Agent Results', '');
 
-  const agentNames = ['UX Planner', 'Tech Planner', 'Biz Planner', 'Planning Moderator', 'Product Designer', 'Developer', 'Test Engineer', 'Reviewer', 'QA Engineer'];
+  const agentNames = ['Planning Team Lead', 'Developer', 'Test Engineer', 'Smoke Tester'];
   const runsByName = new Map(result.agentRuns.map(r => [r.agent_name, r]));
 
   for (const name of agentNames) {

@@ -23,6 +23,13 @@ interface WorkflowStep {
   agents: WorkflowAgent[];
 }
 
+interface PipelineView {
+  pipelineType: 'discovery' | 'fix' | 'test_fix';
+  label: string;
+  description: string;
+  steps: WorkflowStep[];
+}
+
 interface FeedbackLoop {
   from: string;
   to: string;
@@ -37,7 +44,7 @@ interface CEOEscalation {
 
 interface WorkflowData {
   agents: WorkflowAgent[];
-  steps: WorkflowStep[];
+  pipelines: PipelineView[];
   feedbackLoops: FeedbackLoop[];
   ceoEscalation: CEOEscalation;
 }
@@ -52,6 +59,8 @@ function getStepBorderColor(step: WorkflowStep): string {
     case 'developer': return 'border-green-500/30';
     case 'reviewer': return 'border-orange-500/30';
     case 'qa_engineer': return 'border-cyan-500/30';
+    case 'smoke_tester': return 'border-pink-500/30';
+    case 'test_engineer': return 'border-amber-500/30';
     default: return 'border-zinc-600';
   }
 }
@@ -64,6 +73,8 @@ function getStepBgColor(step: WorkflowStep): string {
     case 'developer': return 'bg-green-950/20';
     case 'reviewer': return 'bg-orange-950/20';
     case 'qa_engineer': return 'bg-cyan-950/20';
+    case 'smoke_tester': return 'bg-pink-950/20';
+    case 'test_engineer': return 'bg-amber-950/20';
     default: return 'bg-zinc-800/50';
   }
 }
@@ -76,19 +87,24 @@ function getStepHeaderColor(step: WorkflowStep): string {
     case 'developer': return 'text-green-400';
     case 'reviewer': return 'text-orange-400';
     case 'qa_engineer': return 'text-cyan-400';
+    case 'smoke_tester': return 'text-pink-400';
+    case 'test_engineer': return 'text-amber-400';
     default: return 'text-zinc-300';
   }
 }
 
 function getAgentCardBorder(agent: WorkflowAgent): string {
   switch (agent.name) {
-    case 'ux_planner': return 'border-blue-500/40';
-    case 'tech_planner': return 'border-blue-500/40';
-    case 'biz_planner': return 'border-blue-500/40';
+    case 'ux_planner':
+    case 'tech_planner':
+    case 'biz_planner':
+      return 'border-blue-500/40';
     case 'planning_team_lead': return 'border-purple-500/40';
     case 'developer': return 'border-green-500/40';
     case 'reviewer': return 'border-orange-500/40';
     case 'qa_engineer': return 'border-cyan-500/40';
+    case 'smoke_tester': return 'border-pink-500/40';
+    case 'test_engineer': return 'border-amber-500/40';
     case 'product_designer': return 'border-zinc-600';
     default: return 'border-zinc-600';
   }
@@ -101,9 +117,11 @@ function getPhaseLabel(step: WorkflowStep, index: number): string {
   const name = step.agents[0]?.name;
   switch (name) {
     case 'planning_team_lead': return `Phase ${index + 1}: Planning`;
-    case 'developer': return `Phase ${index + 1}: Development`;
+    case 'developer': return `Phase ${index + 1}: Development (tdd-flutter --auto)`;
     case 'reviewer': return `Phase ${index + 1}: Review`;
     case 'qa_engineer': return `Phase ${index + 1}: QA`;
+    case 'smoke_tester': return `Phase ${index + 1}: Smoke Test (real device)`;
+    case 'test_engineer': return `Phase ${index + 1}: Test Fix`;
     default: return `Phase ${index + 1}: ${step.agents[0]?.displayName ?? ''}`;
   }
 }
@@ -115,6 +133,8 @@ const agentDisplayName: Record<string, string> = {
   developer: 'Developer',
   reviewer: 'Reviewer',
   qa_engineer: 'QA Engineer',
+  smoke_tester: 'Smoke Tester',
+  test_engineer: 'Test Engineer',
   product_designer: 'Product Designer',
 };
 
@@ -173,87 +193,25 @@ export default function AutoWorkflowPage() {
 
   const disabledAgents = data.agents.filter(a => !a.enabled);
 
-  // Find feedback loop targets by agent name for rendering indicators
-  const feedbackFromDev = data.feedbackLoops.find(f => f.from === 'developer');
-  const feedbackFromReviewer = data.feedbackLoops.find(f => f.from === 'reviewer');
-
   return (
     <div className="min-h-screen bg-zinc-900 p-6">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-zinc-100">Workflow Diagram</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Visual representation of the agent pipeline execution order and feedback loops.
+          Visual representation of agent pipelines per cycle type. The active pipeline depends on the finding category and cycle index.
         </p>
       </div>
 
-      {/* Diagram */}
-      <div className="relative mx-auto max-w-4xl">
-        {data.steps.map((step, idx) => {
-          const isDevStep = step.type === 'serial' && step.agents[0]?.name === 'developer';
-          const isReviewStep = step.type === 'serial' && step.agents[0]?.name === 'reviewer';
-
-          return (
-            <div key={idx}>
-              {/* Step card */}
-              <div className="relative">
-                {/* Feedback loop indicator for developer step */}
-                {isDevStep && feedbackFromDev && (
-                  <div className="absolute -right-4 top-1/2 -translate-y-1/2 sm:-right-52">
-                    <div className="hidden sm:block">
-                      <FeedbackLoopBadge
-                        label={feedbackFromDev.label}
-                        condition={feedbackFromDev.condition}
-                        direction="right"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Feedback loop indicator for reviewer step */}
-                {isReviewStep && feedbackFromReviewer && (
-                  <div className="absolute -right-4 top-1/2 -translate-y-1/2 sm:-right-52">
-                    <div className="hidden sm:block">
-                      <FeedbackLoopBadge
-                        label={feedbackFromReviewer.label}
-                        condition={feedbackFromReviewer.condition}
-                        direction="right"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <StepCard step={step} index={idx} />
-
-                {/* Mobile feedback loop badges */}
-                {isDevStep && feedbackFromDev && (
-                  <div className="mt-2 sm:hidden">
-                    <FeedbackLoopBadge
-                      label={feedbackFromDev.label}
-                      condition={feedbackFromDev.condition}
-                      direction="below"
-                    />
-                  </div>
-                )}
-                {isReviewStep && feedbackFromReviewer && (
-                  <div className="mt-2 sm:hidden">
-                    <FeedbackLoopBadge
-                      label={feedbackFromReviewer.label}
-                      condition={feedbackFromReviewer.condition}
-                      direction="below"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Arrow between steps */}
-              {idx < data.steps.length - 1 && <DownArrow />}
-            </div>
-          );
-        })}
-
-        {/* Arrow to CEO */}
-        <DownArrow />
+      {/* Pipelines */}
+      <div className="mx-auto max-w-4xl space-y-12">
+        {data.pipelines.map((pipeline) => (
+          <PipelineSection
+            key={pipeline.pipelineType}
+            pipeline={pipeline}
+            feedbackLoops={data.feedbackLoops}
+          />
+        ))}
 
         {/* CEO Escalation */}
         <div className="rounded-lg border border-red-500/30 bg-red-950/20 p-5">
@@ -304,9 +262,10 @@ export default function AutoWorkflowPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <LegendItem color="bg-blue-500/30" label="Parallel Planning" />
           <LegendItem color="bg-purple-500/30" label="Planning Team Lead" />
-          <LegendItem color="bg-green-500/30" label="Development" />
-          <LegendItem color="bg-orange-500/30" label="Review" />
-          <LegendItem color="bg-cyan-500/30" label="QA" />
+          <LegendItem color="bg-green-500/30" label="Development (tdd-flutter)" />
+          <LegendItem color="bg-pink-500/30" label="Smoke Tester (real device)" />
+          <LegendItem color="bg-amber-500/30" label="Test Engineer" />
+          <LegendItem color="bg-cyan-500/30" label="QA Engineer" />
           <LegendItem color="bg-red-500/30" label="CEO Escalation" />
           <LegendItem color="bg-yellow-500/30" label="Feedback Loop" />
         </div>
@@ -316,6 +275,79 @@ export default function AutoWorkflowPage() {
 }
 
 // --- Sub-components ---
+
+function PipelineSection({
+  pipeline,
+  feedbackLoops,
+}: {
+  pipeline: PipelineView;
+  feedbackLoops: FeedbackLoop[];
+}) {
+  const pipelineTypeColor = {
+    discovery: 'border-purple-500/40 bg-purple-950/10',
+    fix: 'border-green-500/40 bg-green-950/10',
+    test_fix: 'border-amber-500/40 bg-amber-950/10',
+  }[pipeline.pipelineType];
+
+  return (
+    <section className={`rounded-xl border-2 ${pipelineTypeColor} p-6`}>
+      <header className="mb-4">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-zinc-100">{pipeline.label}</h2>
+          <code className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+            pipelineType=&quot;{pipeline.pipelineType}&quot;
+          </code>
+        </div>
+        <p className="mt-1.5 text-sm text-zinc-400">{pipeline.description}</p>
+      </header>
+
+      {pipeline.steps.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-zinc-700 bg-zinc-800/30 p-6 text-center">
+          <p className="text-sm text-zinc-500">No enabled agents for this pipeline.</p>
+        </div>
+      ) : (
+        <div className="relative">
+          {pipeline.steps.map((step, idx) => {
+            const agentName = step.agents[0]?.name;
+            const outboundLoop = feedbackLoops.find(f => f.from === agentName);
+
+            return (
+              <div key={idx}>
+                <div className="relative">
+                  {outboundLoop && (
+                    <div className="absolute -right-4 top-1/2 -translate-y-1/2 sm:-right-52">
+                      <div className="hidden sm:block">
+                        <FeedbackLoopBadge
+                          label={outboundLoop.label}
+                          condition={outboundLoop.condition}
+                          direction="right"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <StepCard step={step} index={idx} />
+
+                  {outboundLoop && (
+                    <div className="mt-2 sm:hidden">
+                      <FeedbackLoopBadge
+                        label={outboundLoop.label}
+                        condition={outboundLoop.condition}
+                        direction="below"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {idx < pipeline.steps.length - 1 && <DownArrow />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function StepCard({ step, index }: { step: WorkflowStep; index: number }) {
   const borderColor = getStepBorderColor(step);

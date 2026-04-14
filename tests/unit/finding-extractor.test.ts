@@ -75,17 +75,20 @@ describe('FindingExtractor', () => {
   });
 
   describe('extract() deduplicates against crossSessionFindings (resolved)', () => {
-    it('should filter out findings that were resolved in a previous session', () => {
+    it('should filter out non-bug findings that were resolved in a previous session', () => {
+      // Bugs bypass this dedup as regressions — see the "bug regression bypass" suite.
+      // Non-bug categories still dedupe.
       const output = makeClaudeOutput([
-        { title: 'Fix memory leak in worker pool', category: 'bug' },
-        { title: 'Brand new issue', category: 'bug' },
+        { title: 'Optimize worker pool allocation', category: 'performance' },
+        { title: 'Brand new issue', category: 'improvement' },
       ]);
 
       const crossSession: AutoFinding[] = [
         makeFinding({
           id: 'cs-f1',
           session_id: 'old-session',
-          title: 'Fix memory leak in worker pool',
+          title: 'Optimize worker pool allocation',
+          category: 'performance',
           status: 'resolved',
           resolved_by_cycle_id: 'old-cycle-1',
         }),
@@ -141,9 +144,9 @@ describe('FindingExtractor', () => {
   });
 
   describe('extract() deduplicates when titles are similar but not exact (Dice > 0.8)', () => {
-    it('should filter out findings with similar titles (Dice coefficient > 0.8)', () => {
+    it('should filter out non-bug findings with similar titles (Dice coefficient > 0.8)', () => {
       const output = makeClaudeOutput([
-        { title: 'Fix memory leak in the worker pool module', category: 'bug' },
+        { title: 'Optimize worker pool memory allocation', category: 'performance' },
         { title: 'Unrelated finding about security', category: 'security' },
       ]);
 
@@ -152,7 +155,8 @@ describe('FindingExtractor', () => {
         makeFinding({
           id: 'cs-f4',
           session_id: 'old-session',
-          title: 'Fix memory leak in worker pool module',
+          title: 'Optimize worker pool memory alloc',
+          category: 'performance',
           status: 'resolved',
         }),
       ];
@@ -200,14 +204,16 @@ describe('FindingExtractor', () => {
 
   describe('extract() combined same-session and cross-session dedup', () => {
     it('should deduplicate against both existing and cross-session findings simultaneously', () => {
+      // Use non-bug categories so cross-session dedup applies; bugs have the
+      // regression bypass which is exercised by a dedicated test suite above.
       const output = makeClaudeOutput([
-        { title: 'Already in current session', category: 'bug' },
-        { title: 'Already resolved in old session', category: 'bug' },
+        { title: 'Already in current session', category: 'improvement' },
+        { title: 'Already resolved in old session', category: 'improvement' },
         { title: 'Truly new finding', category: 'improvement' },
       ]);
 
       const existing: AutoFinding[] = [
-        makeFinding({ id: 'e1', title: 'Already in current session', status: 'open' }),
+        makeFinding({ id: 'e1', title: 'Already in current session', category: 'improvement', status: 'open' }),
       ];
 
       const crossSession: AutoFinding[] = [
@@ -215,6 +221,7 @@ describe('FindingExtractor', () => {
           id: 'cs1',
           session_id: 'old-session',
           title: 'Already resolved in old session',
+          category: 'improvement',
           status: 'resolved',
         }),
       ];
@@ -222,6 +229,87 @@ describe('FindingExtractor', () => {
       const result = extractor.extract(output, existing, crossSession);
       expect(result).toHaveLength(1);
       expect(result[0].title).toBe('Truly new finding');
+    });
+  });
+
+  describe('extract() bug regression bypass for resolved cross-session findings', () => {
+    it('lets a bug through as P0 REGRESSION when title matches a RESOLVED cross-session bug', () => {
+      const output = makeClaudeOutput([
+        { title: 'PDF viewer crash on sample scores', category: 'bug', priority: 'P1' },
+      ]);
+
+      const crossSession: AutoFinding[] = [
+        makeFinding({
+          id: 'cs-resolved',
+          session_id: 'old',
+          title: 'PDF viewer crash on sample scores',
+          category: 'bug',
+          status: 'resolved',
+        }),
+      ];
+
+      const result = extractor.extract(output, [], crossSession);
+      expect(result).toHaveLength(1);
+      expect(result[0].title).toBe('REGRESSION: PDF viewer crash on sample scores');
+      expect(result[0].priority).toBe('P0');
+    });
+
+    it('still dedupes a non-bug category (e.g., improvement) matching a resolved finding', () => {
+      const output = makeClaudeOutput([
+        { title: 'Polish loading overlay', category: 'improvement', priority: 'P2' },
+      ]);
+
+      const crossSession: AutoFinding[] = [
+        makeFinding({
+          id: 'cs-resolved-imp',
+          session_id: 'old',
+          title: 'Polish loading overlay',
+          category: 'improvement',
+          status: 'resolved',
+        }),
+      ];
+
+      const result = extractor.extract(output, [], crossSession);
+      expect(result).toHaveLength(0);
+    });
+
+    it('still dedupes a bug matching a WONT_FIX cross-session finding (intentional skip)', () => {
+      const output = makeClaudeOutput([
+        { title: 'Flaky auth test', category: 'bug', priority: 'P1' },
+      ]);
+
+      const crossSession: AutoFinding[] = [
+        makeFinding({
+          id: 'cs-wontfix',
+          session_id: 'old',
+          title: 'Flaky auth test',
+          category: 'bug',
+          status: 'wont_fix',
+        }),
+      ];
+
+      const result = extractor.extract(output, [], crossSession);
+      expect(result).toHaveLength(0);
+    });
+
+    it('does not double-prefix an already-REGRESSION title', () => {
+      const output = makeClaudeOutput([
+        { title: 'REGRESSION: PDF viewer broken again', category: 'bug', priority: 'P1' },
+      ]);
+
+      const crossSession: AutoFinding[] = [
+        makeFinding({
+          id: 'cs-prev',
+          session_id: 'old',
+          title: 'REGRESSION: PDF viewer broken again',
+          category: 'bug',
+          status: 'resolved',
+        }),
+      ];
+
+      const result = extractor.extract(output, [], crossSession);
+      expect(result).toHaveLength(1);
+      expect(result[0].title).toBe('REGRESSION: PDF viewer broken again');
     });
   });
 

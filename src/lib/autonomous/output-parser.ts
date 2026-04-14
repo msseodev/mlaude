@@ -63,32 +63,8 @@ function generateSummary(
 ): string {
   const nameLower = agentName.toLowerCase();
 
-  // Product Designer
-  if (nameLower === 'product_designer' || nameLower === 'product designer') {
-    return summarizeDesigner(structuredData, rawOutput);
-  }
-
-  // Planning Moderator
-  if (nameLower === 'planning_moderator' || nameLower === 'planning moderator') {
-    return summarizeModerator(structuredData, rawOutput);
-  }
-
-  // Planner agents (UX, Tech, Biz, Music Domain, Smoke Tester)
-  if (nameLower === 'ux_planner' || nameLower === 'ux planner'
-    || nameLower === 'tech_planner' || nameLower === 'tech planner'
-    || nameLower === 'biz_planner' || nameLower === 'biz planner'
-    || nameLower === 'music_domain_planner' || nameLower === 'music domain planner'
-    || nameLower === 'smoke_tester' || nameLower === 'smoke tester') {
-    return summarizePlanner(structuredData, rawOutput);
-  }
-
-  // Reviewer
-  if (nameLower === 'reviewer') {
-    return summarizeReviewer(structuredData, rawOutput);
-  }
-
-  // QA Engineer
-  if (nameLower === 'qa_engineer' || nameLower === 'qa engineer') {
+  // Smoke Tester (real-device smoke output uses the same QA JSON shape)
+  if (nameLower === 'smoke_tester' || nameLower === 'smoke tester') {
     return summarizeQA(structuredData, rawOutput);
   }
 
@@ -101,101 +77,6 @@ function generateSummary(
   }
 
   // Default (Developer, etc.)
-  if (rawOutput.length <= 1000) {
-    return rawOutput;
-  }
-  return rawOutput.slice(0, 1000) + '...';
-}
-
-function summarizeDesigner(
-  data: Record<string, unknown> | null,
-  rawOutput: string,
-): string {
-  if (data && Array.isArray(data.features)) {
-    const features = data.features as Array<Record<string, unknown>>;
-    const featureList = features
-      .map(f => `[${f.priority ?? 'P2'}] ${f.title ?? 'untitled'}`)
-      .join('; ');
-    const analysisSummary = typeof data.analysis_summary === 'string' ? data.analysis_summary : '';
-    const parts = [`Proposed ${features.length} features: ${featureList}`];
-    if (analysisSummary) {
-      parts.push(analysisSummary);
-    }
-    return parts.join('. ');
-  }
-  if (rawOutput.length <= 1000) {
-    return rawOutput;
-  }
-  return rawOutput.slice(0, 1000) + '...';
-}
-
-function summarizePlanner(
-  data: Record<string, unknown> | null,
-  rawOutput: string,
-): string {
-  if (data && Array.isArray(data.findings)) {
-    const findings = data.findings as Array<Record<string, unknown>>;
-    const perspective = typeof data.perspective === 'string' ? data.perspective : 'unknown';
-    const findingList = findings
-      .map(f => `[${f.priority ?? 'P2'}] ${f.title ?? 'untitled'}`)
-      .join('; ');
-    const summary = typeof data.summary === 'string' ? data.summary : '';
-    const parts = [`[${perspective}] ${findings.length} findings: ${findingList}`];
-    if (summary) {
-      parts.push(summary);
-    }
-    return parts.join('. ');
-  }
-  if (rawOutput.length <= 1000) {
-    return rawOutput;
-  }
-  return rawOutput.slice(0, 1000) + '...';
-}
-
-function summarizeModerator(
-  data: Record<string, unknown> | null,
-  rawOutput: string,
-): string {
-  if (data && Array.isArray(data.agreed_items)) {
-    const items = data.agreed_items as Array<Record<string, unknown>>;
-    const itemList = items
-      .map(item => `[${item.priority ?? 'P2'}] ${item.title ?? 'untitled'}`)
-      .join('; ');
-    const planningSummary = typeof data.planning_summary === 'string' ? data.planning_summary : '';
-    const conflicts = Array.isArray(data.conflicts_resolved) ? data.conflicts_resolved.length : 0;
-    const deferred = Array.isArray(data.deferred_items) ? data.deferred_items.length : 0;
-    const parts = [`Agreed on ${items.length} items: ${itemList}`];
-    if (conflicts > 0) {
-      parts.push(`${conflicts} conflicts resolved`);
-    }
-    if (deferred > 0) {
-      parts.push(`${deferred} items deferred`);
-    }
-    if (planningSummary) {
-      parts.push(planningSummary);
-    }
-    return parts.join('. ');
-  }
-  if (rawOutput.length <= 1000) {
-    return rawOutput;
-  }
-  return rawOutput.slice(0, 1000) + '...';
-}
-
-function summarizeReviewer(
-  data: Record<string, unknown> | null,
-  rawOutput: string,
-): string {
-  if (data && typeof data.approved === 'boolean') {
-    const status = data.approved ? 'APPROVED' : 'REJECTED';
-    const issues = Array.isArray(data.issues) ? data.issues.length : 0;
-    const summary = typeof data.summary === 'string' ? data.summary : '';
-    const parts = [`Review: ${status} (${issues} issues)`];
-    if (summary) {
-      parts.push(summary);
-    }
-    return parts.join('. ');
-  }
   if (rawOutput.length <= 1000) {
     return rawOutput;
   }

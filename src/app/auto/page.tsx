@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { PipelineViewer } from '@/components/auto/PipelineViewer';
 import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
+import { RateLimitBanner } from '@/components/RateLimitBanner';
 import type { AutoSSEEvent, AutoUserPrompt } from '@/types';
 
 const MAX_OUTPUT_ENTRIES = 10000;
@@ -1154,59 +1155,6 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <p className="text-sm text-gray-500">{label}</p>
       <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
-    </div>
-  );
-}
-
-// --- RateLimitBanner ---
-
-function RateLimitBanner({
-  waitingUntil,
-  retryCount,
-}: {
-  waitingUntil: string;
-  retryCount: number;
-}) {
-  const [remaining, setRemaining] = useState('');
-
-  useEffect(() => {
-    function update() {
-      const diff = new Date(waitingUntil).getTime() - Date.now();
-      if (diff <= 0) {
-        setRemaining('resuming...');
-        return;
-      }
-      const secs = Math.ceil(diff / 1000);
-      const mins = Math.floor(secs / 60);
-      const s = secs % 60;
-      setRemaining(mins > 0 ? `${mins}m ${s}s` : `${s}s`);
-    }
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [waitingUntil]);
-
-  return (
-    <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3">
-      <div className="flex items-center gap-2">
-        <svg
-          className="h-5 w-5 text-yellow-600"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <span className="text-sm font-medium text-yellow-800">
-          Rate limit reached. Retrying in {remaining}
-          {retryCount > 0 && ` (attempt ${retryCount})`}
-        </span>
-      </div>
     </div>
   );
 }

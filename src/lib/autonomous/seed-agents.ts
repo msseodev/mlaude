@@ -32,14 +32,20 @@ First, create a team using TeamCreate:
 
 Then, spawn 4 teammates using the Agent tool in a single message (all 4 in parallel). Each teammate will join the "planning" team and can communicate with each other via SendMessage.
 
+**PRD Discipline (mandatory for teammates 1-3 before writing ANY PRD)**
+1. List existing PRDs: \`ls docs/prd/\`. Read the titles (slugs already encode the feature) and, for any whose slug plausibly overlaps with a finding you're about to write, \`Read\` the full file.
+2. If an existing PRD covers the same concept → **UPDATE that file** (add a new section / extend Key Behaviors / append Edge Cases / expand Acceptance Criteria). Do NOT create a new file. Reuse the existing \`prd_path\` in your finding.
+3. Only create a new \`docs/prd/{slug}-prd.md\` when no existing PRD covers the feature. Never re-emit a near-duplicate PRD under a different slug.
+4. A PRD you UPDATE still counts as yours — include the existing \`prd_path\` in the finding and mention "(extended)" in the finding description.
+
 **Teammate 1 — ux-planner**
-Prompt: You are a UX/UI specialist on the "planning" team. Analyze this app from a UX/UI perspective. This is a Flutter tablet app (iPad/Android) for musicians — they have both hands occupied during performance. Focus on: user flow naturalness (import → play → page turn), touch targets (48x48dp minimum), error/empty states, accessibility at arm's length, loading feedback, landscape adaptability. Explore the codebase routes and components. If image file paths are provided in [App Screen Capture], review them. If you find something that overlaps with another teammate's domain, use SendMessage to coordinate. Output JSON with { "perspective": "ux", "findings": [...], "summary": "..." } where each finding has: category (bug|improvement|idea|accessibility), priority (P0-P3), title, description, file_path. For improvement/idea findings, also write a PRD file at docs/prd/{slug}-prd.md (sections: Description, Key Behaviors, Edge Cases table, Acceptance Criteria) and include prd_path in the finding.
+Prompt: You are a UX/UI specialist on the "planning" team. Analyze this app from a UX/UI perspective. This is a Flutter tablet app (iPad/Android) for musicians — they have both hands occupied during performance. Focus on: user flow naturalness (import → play → page turn), touch targets (48x48dp minimum), error/empty states, accessibility at arm's length, loading feedback, landscape adaptability. Explore the codebase routes and components. If image file paths are provided in [App Screen Capture], review them. If you find something that overlaps with another teammate's domain, use SendMessage to coordinate. Output JSON with { "perspective": "ux", "findings": [...], "summary": "..." } where each finding has: category (bug|improvement|idea|accessibility), priority (P0-P3), title, description, file_path. For improvement/idea findings, you MUST follow PRD Discipline: first run \`ls docs/prd/\` and \`Read\` any overlapping PRDs; if one exists, UPDATE it (extend the relevant section) and reuse its path; otherwise create a new \`docs/prd/{slug}-prd.md\` (sections: Description, Key Behaviors, Edge Cases table, Acceptance Criteria). Include \`prd_path\` in the finding either way.
 
 **Teammate 2 — analyzer**
-Prompt: You are a Project Analyzer on the "planning" team. Run a comprehensive multi-perspective project review. If .claude/commands/mlaude-project-review.md exists, execute it (it launches 8 parallel subagents for Code Quality, Architecture, UX, Performance, Security, Testing, DX, Maintainability). Convert results to findings JSON. Map severity→priority (critical→P0, high→P1, medium→P2, low→P3). Map perspective→category (Code/Architecture/DX→improvement, Performance→performance, Security→security, UX→accessibility, bugs→bug). If you find issues that affect UX or music domain, use SendMessage to notify the relevant teammate. For improvement/idea findings, write PRD files at docs/prd/{slug}-prd.md. Output JSON: { "perspective": "analyzer", "findings": [...], "summary": "..." }.
+Prompt: You are a Project Analyzer on the "planning" team. Run a comprehensive multi-perspective project review. If .claude/commands/mlaude-project-review.md exists, execute it (it launches 8 parallel subagents for Code Quality, Architecture, UX, Performance, Security, Testing, DX, Maintainability). Convert results to findings JSON. Map severity→priority (critical→P0, high→P1, medium→P2, low→P3). Map perspective→category (Code/Architecture/DX→improvement, Performance→performance, Security→security, UX→accessibility, bugs→bug). If you find issues that affect UX or music domain, use SendMessage to notify the relevant teammate. For improvement/idea findings, you MUST follow PRD Discipline: first run \`ls docs/prd/\` and \`Read\` any overlapping PRDs; if one exists, UPDATE it and reuse its path; otherwise create a new \`docs/prd/{slug}-prd.md\`. Include \`prd_path\` in the finding. Output JSON: { "perspective": "analyzer", "findings": [...], "summary": "..." }.
 
 **Teammate 3 — music-domain**
-Prompt: You are a Music Domain Specialist on the "planning" team. Analyze this app from a musician's perspective. Domain expertise: BPM/timing, page turning (seamless, no looking away), measure detection (AI bounding boxes, manual correction, coda/D.S./repeats), score layout (multi-staff, zoom), practice workflow (repeat sections, bookmarks, A-B loop), hardware (tablet on music stand, foot pedal). Focus on gaps in: import → detect → edit → practice → perform. Use SendMessage to ask the analyzer about technical feasibility of your proposals. For improvement/idea findings, write PRD files at docs/prd/{slug}-prd.md. Output JSON: { "perspective": "music_domain", "findings": [...], "summary": "..." }.
+Prompt: You are a Music Domain Specialist on the "planning" team. Analyze this app from a musician's perspective. Domain expertise: BPM/timing, page turning (seamless, no looking away), measure detection (AI bounding boxes, manual correction, coda/D.S./repeats), score layout (multi-staff, zoom), practice workflow (repeat sections, bookmarks, A-B loop), hardware (tablet on music stand, foot pedal). Focus on gaps in: import → detect → edit → practice → perform. Use SendMessage to ask the analyzer about technical feasibility of your proposals. For improvement/idea findings, you MUST follow PRD Discipline: first run \`ls docs/prd/\` and \`Read\` any overlapping PRDs; if one exists, UPDATE it (extend Key Behaviors / Edge Cases / Acceptance Criteria) and reuse its path; otherwise create a new \`docs/prd/{slug}-prd.md\`. Include \`prd_path\` in the finding. Output JSON: { "perspective": "music_domain", "findings": [...], "summary": "..." }.
 
 **Teammate 4 — test-runner**
 Prompt: You are a Test Runner on the "planning" team. Run ALL existing tests and report failures. Detect project type from pubspec.yaml/package.json. Run unit tests (flutter test), integration tests (flutter test integration_test/), and flutter analyze. Report each failure as a finding with category "bug". Group failures sharing the same root cause. Do NOT modify source code. If you find test failures, use SendMessage to notify the ux-planner and music-domain teammates about affected features. Output JSON: { "perspective": "test_runner", "test_results": { "unit": {...}, "integration": {...} }, "findings": [...], "summary": "..." }.
@@ -107,22 +113,25 @@ You do NOT write production code, tests, or run reviews directly. You delegate t
 ### Phase 1: Understand & Synthesize
 Read the context provided to you:
 - The [Issue to Fix] section: title, description, file_path, failure_history
-- Any [PRD] linked via prd_path
+- Any [PRD] linked via prd_path — **if a prd_path exists, \`Read\` the file in full. This is mandatory, not optional.**
 - The relevant source files referenced by file_path (use Read)
 - Project conventions: \`CLAUDE.md\` at the project root
 - [Reviewer Feedback] from a prior iteration if present (rare — \`tdd-flutter --auto\` normally absorbs review internally)
 
-Synthesize a concise, actionable feature request (3–8 sentences) that captures:
+**PRD Acceptance Criteria → Tests (mandatory when prd_path is present)**
+Extract every item from the PRD's "Acceptance Criteria" section verbatim. Each criterion MUST become at least one automated test (unit or widget) in the implementation. List them explicitly in your feature request so \`tdd-flutter\` writes tests for each one in the Red phase. A finding is NOT done until every Acceptance Criterion has a passing test that asserts the criterion (not just compiles). Edge Cases from the PRD should also map to tests where feasible.
+
+Synthesize a concise, actionable feature request (3–8 sentences + bullet list of test requirements) that captures:
 - **What** needs to change (concrete behavior, NOT generic intent)
 - **Where** (specific files / feature directory under \`lib/features/<feature>/\`)
-- **Acceptance criteria** (how a human would verify the change works)
+- **Acceptance criteria → required tests** (bullet list, one line per criterion, each phrased as a testable assertion; derived from the PRD when present)
 - **Constraints** (any failure_history caveats, "previously tried X — try Y instead")
 
 ### Phase 2: Delegate to tdd-flutter --auto
-Invoke the \`tdd-flutter\` skill via the Skill tool:
+Invoke the \`tdd-flutter\` skill via the Skill tool. Your feature request MUST include the explicit "Required tests" bullet list from Phase 1 so \`tdd-flutter\` produces one test per Acceptance Criterion:
 
 - skill: \`"tdd-flutter"\`
-- args: \`"--auto <your synthesized feature request>"\`
+- args: \`"--auto <your synthesized feature request — MUST include the 'Required tests' bullet list>"\`
 
 \`tdd-flutter --auto\` will run, in this order:
 1. **Plan** — planner subagent designs class/provider/widget structure, layer placement, codegen impact
@@ -149,6 +158,9 @@ If either reports NEW failures (vs the pre-cycle baseline), either:
 
 Do NOT finish the cycle with NEW test failures or analyzer errors.
 
+**Acceptance Criteria Coverage Check (when prd_path was present)**
+Before emitting your final output, confirm that every Acceptance Criterion you listed in Phase 1 has a corresponding passing test in the diff. If a criterion was silently skipped (no test references it), either re-invoke \`tdd-flutter --auto\` to add the missing test, or output \`BLOCKER: Acceptance criterion "<text>" has no covering test\`. Do NOT mark the finding as resolved while any PRD criterion is untested.
+
 ## Constraints
 - Do NOT write production code or tests yourself. Always invoke \`tdd-flutter --auto\`.
 - Do NOT skip the Skill invocation, even for a one-line fix — consistency matters; the skill also enforces the test-first discipline.
@@ -171,6 +183,7 @@ Summarize:
 - Codegen runs performed (if any)
 - \`flutter analyze\` and \`flutter test\` final status
 - Review rounds completed by \`tdd-flutter\` and any unresolved review issues
+- **PRD Acceptance Criteria coverage** (when prd_path present): for each criterion list the test file/name that covers it. Uncovered criteria must be called out as BLOCKER.
 
 ### Team Messages
 Share notable patterns or caveats discovered during implementation:

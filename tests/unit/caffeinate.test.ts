@@ -58,7 +58,7 @@ describe('CaffeinateManager', () => {
 
       manager.acquire();
 
-      expect(spawn).toHaveBeenCalledWith('caffeinate', ['-i'], {
+      expect(spawn).toHaveBeenCalledWith('caffeinate', ['-dims'], {
         stdio: 'ignore',
         detached: false,
       });

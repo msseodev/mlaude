@@ -40,6 +40,7 @@ export interface PipelineResult {
   totalCostUsd: number;
   totalDurationMs: number;
   qaResult?: { passed: boolean; testOutput: string };
+  qaScreenshots?: string[];
   blockerInfo?: { agentName: string; reason: string };
   createdFindings?: Array<{ priority: string; title: string; category: string }>;
   abortedByRateLimit?: boolean;
@@ -76,6 +77,22 @@ interface FeedbackLoopResult {
 export const PLANNER_AGENT_NAMES = new Set(['planning_team_lead']);
 export function isPlannerAgent(agent: AutoAgent): boolean {
   return PLANNER_AGENT_NAMES.has(agent.name);
+}
+
+/**
+ * Extract smoke screenshot paths from the most recent failure history entry of a finding.
+ * Used to forward smoke test screenshots to the developer on the next fix cycle.
+ * Returns undefined when there are no screenshots to forward.
+ */
+export function getDeveloperSmokeScreenshots(finding: AutoFinding | null | undefined): string[] | undefined {
+  if (!finding?.failure_history) return undefined;
+  try {
+    const history: import('./types').FailureHistoryEntry[] = JSON.parse(finding.failure_history);
+    if (history.length === 0) return undefined;
+    const latest = history[history.length - 1];
+    const paths = (latest.screenshots ?? []).filter(p => typeof p === 'string' && p.length > 0 && fs.existsSync(p));
+    return paths.length > 0 ? paths : undefined;
+  } catch { return undefined; }
 }
 
 export class PipelineExecutor {
@@ -185,7 +202,9 @@ export class PipelineExecutor {
               finding: this.finding,
               screenFrames: PLANNER_AGENT_NAMES.has(agent.name) && screenCapture.frames.length > 0
                 ? screenCapture.frames
-                : undefined,
+                : agent.name === 'developer'
+                  ? getDeveloperSmokeScreenshots(this.finding)
+                  : undefined,
               ceoRequests,
               pipelineType: this.pipelineType,
               globalPrompt,
@@ -328,7 +347,9 @@ export class PipelineExecutor {
           finding: this.finding,
           screenFrames: PLANNER_AGENT_NAMES.has(agent.name) && screenCapture.frames.length > 0
             ? screenCapture.frames
-            : undefined,
+            : agent.name === 'developer'
+              ? getDeveloperSmokeScreenshots(this.finding)
+              : undefined,
           ceoRequests,
           pipelineType: this.pipelineType,
           globalPrompt,
@@ -590,8 +611,11 @@ export class PipelineExecutor {
       r.agent_name === 'Smoke Tester' || r.agent_name === 'smoke_tester'
     );
     let qaResult: PipelineResult['qaResult'];
+    let qaScreenshots: string[] | undefined;
     if (qaRun && qaRun.status === 'completed') {
       qaResult = parseQAOutput(qaRun.output);
+      const screenshots = extractSmokeScreenshots(qaRun.output);
+      if (screenshots.length > 0) qaScreenshots = screenshots;
     }
 
     const allAgentsFailed = allAgentRuns.length > 0 && allAgentRuns.every(r => r.status === 'failed');
@@ -603,6 +627,7 @@ export class PipelineExecutor {
       totalCostUsd,
       totalDurationMs,
       qaResult,
+      qaScreenshots,
       blockerInfo,
       createdFindings,
     };
@@ -1041,6 +1066,31 @@ export function parseReviewOutput(output: string): { approved: boolean; feedback
   }
   // Default to approved to avoid infinite loops
   return { approved: true, feedback: '' };
+}
+
+/**
+ * Extract screenshot paths from a smoke_tester output JSON.
+ * Returns only paths that exist on disk. Returns empty array on parse failure.
+ */
+export function extractSmokeScreenshots(output: string): string[] {
+  try {
+    const summaryIdx = output.indexOf('"summary"');
+    if (summaryIdx !== -1) {
+      const openIdx = output.lastIndexOf('{', summaryIdx);
+      if (openIdx !== -1) {
+        const json = extractBalancedBraces(output, openIdx);
+        if (json) {
+          const parsed = JSON.parse(json);
+          if (Array.isArray(parsed.failures)) {
+            return parsed.failures
+              .map((f: Record<string, unknown>) => f.screenshot)
+              .filter((p: unknown): p is string => typeof p === 'string' && p.length > 0 && fs.existsSync(p));
+          }
+        }
+      }
+    }
+  } catch { /* ignore parse failures */ }
+  return [];
 }
 
 export function parseQAOutput(output: string): { passed: boolean; testOutput: string } {

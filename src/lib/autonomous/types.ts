@@ -73,6 +73,7 @@ export interface FailureHistoryEntry {
   approach: string;
   failure_reason: string;
   timestamp: string;
+  screenshots?: string[];
 }
 
 export interface AutoAgent {

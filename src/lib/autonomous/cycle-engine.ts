@@ -594,7 +594,7 @@ class CycleEngineImpl {
 
       if (existingTestFailure) {
         updateAutoFinding(existingTestFailure.id, {
-          description: result.qaResult.testOutput.slice(0, 2000),
+          description: result.qaResult.testOutput,
         });
       } else {
         createAutoFinding({
@@ -602,7 +602,7 @@ class CycleEngineImpl {
           category: 'test_failure',
           priority: 'P0',
           title: 'QA tests failed in pipeline cycle',
-          description: result.qaResult.testOutput.slice(0, 2000),
+          description: result.qaResult.testOutput,
         });
       }
     }
@@ -615,14 +615,14 @@ class CycleEngineImpl {
         category: 'bug',
         priority: 'P0',
         title: `Blocker from ${result.blockerInfo.agentName}: ${result.blockerInfo.reason.slice(0, 100)}`,
-        description: result.blockerInfo.reason.slice(0, 2000),
+        description: result.blockerInfo.reason,
       });
     }
 
     // Mark finding resolved on success
     if (result.success && findingToFix) {
       const devRun = result.agentRuns.find(r => r.agent_name === 'Developer');
-      const resolutionSummary = devRun?.output?.slice(0, 500) || '';
+      const resolutionSummary = devRun?.output ?? '';
       updateAutoFinding(findingToFix.id, {
         status: 'resolved',
         resolved_by_cycle_id: cycle.id,
@@ -642,9 +642,10 @@ class CycleEngineImpl {
         const existingHistory: FailureHistoryEntry[] = f.failure_history ? JSON.parse(f.failure_history) : [];
         existingHistory.push({
           cycle_id: cycle.id,
-          approach: result.finalOutput.slice(0, 500),
-          failure_reason: result.qaResult?.testOutput?.slice(0, 500) || 'Pipeline failed',
+          approach: result.finalOutput,
+          failure_reason: result.qaResult?.testOutput ?? 'Pipeline failed',
           timestamp: now,
+          screenshots: result.qaScreenshots,
         });
         if (newRetryCount >= f.max_retries) {
           updateAutoFinding(findingToFix.id, { status: 'wont_fix', retry_count: newRetryCount, failure_history: JSON.stringify(existingHistory) });

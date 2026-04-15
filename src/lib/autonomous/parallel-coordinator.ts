@@ -25,7 +25,6 @@ export class WorkerPool {
   private workers: Map<number, WorkerState> = new Map();
   private stopped = false;
   public abortedByAuthError = false;
-  private cycleCounter: number;
   private activePromises: Map<number, Promise<void>> = new Map();
   private activeExecutors: Map<number, PipelineExecutor> = new Map();
   private mergeLock: Promise<void> = Promise.resolve();
@@ -33,6 +32,8 @@ export class WorkerPool {
   private poolDestroyed = false;
   private _completedCycles: number = 0;
   private _failedCycles: number = 0;
+  /** Highest cycle_number that this pool has created (DB-assigned) */
+  private _maxCycleNumberCreated: number = -1;
   /** true if the last cycle in the batch (by cycle_number) succeeded */
   private _lastCycleSucceeded: boolean = false;
   private _lastCompletedCycleNumber: number = -1;
@@ -41,10 +42,7 @@ export class WorkerPool {
     private session: AutoSession,
     private emit: (event: AutoSSEEvent) => void,
     private maxWorkers: number,
-    startCycleNumber: number,
-  ) {
-    this.cycleCounter = startCycleNumber;
-  }
+  ) {}
 
   async start(): Promise<void> {
     this.emit({
@@ -74,7 +72,7 @@ export class WorkerPool {
 
     this.emit({
       type: 'parallel_batch_complete',
-      data: { totalCycles: this.cycleCounter },
+      data: { totalCycles: this._maxCycleNumberCreated + 1 },
       timestamp: new Date().toISOString(),
     });
   }
@@ -96,8 +94,9 @@ export class WorkerPool {
     };
   }
 
+  /** Returns a cycle-number cursor for the engine to stay in sync (last created + 1). */
   getCycleCount(): number {
-    return this.cycleCounter;
+    return this._maxCycleNumberCreated + 1;
   }
 
   /** Number of cycles that completed successfully in this batch */
@@ -121,10 +120,7 @@ export class WorkerPool {
 
       this.workers.set(workerId, { active: true, findingId: finding.id, cycleId: null });
 
-      // 2. Assign cycle number
-      const cycleNumber = this.cycleCounter++;
-
-      // 3. Reset worktree to current main HEAD
+      // 2. Reset worktree to current main HEAD
       const gitManager = new GitManager(this.session.target_project);
       const resetOk = await gitManager.resetWorktree(wt.path);
       if (!resetOk) {
@@ -133,13 +129,18 @@ export class WorkerPool {
         continue;
       }
 
-      // 4. Create cycle record
+      // 3. Create cycle record — cycle_number is assigned atomically by the DB
+      //    (transactional MAX+1), guaranteeing uniqueness across concurrent
+      //    workers and overlapping WorkerPool lifetimes.
       const cycle = createAutoCycle({
         session_id: this.session.id,
-        cycle_number: cycleNumber,
         phase: 'pipeline',
         finding_id: finding.id,
       });
+      const cycleNumber = cycle.cycle_number;
+      if (cycleNumber > this._maxCycleNumberCreated) {
+        this._maxCycleNumberCreated = cycleNumber;
+      }
       this.workers.set(workerId, { active: true, findingId: finding.id, cycleId: cycle.id });
 
       // 5. Emit cycle_start

@@ -202,6 +202,54 @@ export function initAutoTables(): void {
     // Column already exists
   }
 
+  // Migration: enforce UNIQUE(session_id, cycle_number) on auto_cycles.
+  // Historically cycle_number was assigned from an in-memory counter that
+  // could desync when multiple WorkerPools overlapped, producing duplicates.
+  // Step 1: renumber any existing duplicates to fresh MAX+N slots (keeps
+  //         the earliest row untouched, shifts the rest to the tail).
+  // Step 2: create the UNIQUE index. createAutoCycle() below computes
+  //         cycle_number atomically, so the constraint only catches bugs.
+  try {
+    const dupRows = db.prepare(`
+      SELECT id, session_id, cycle_number, started_at
+      FROM auto_cycles
+      WHERE (session_id, cycle_number) IN (
+        SELECT session_id, cycle_number
+        FROM auto_cycles
+        GROUP BY session_id, cycle_number
+        HAVING COUNT(*) > 1
+      )
+      ORDER BY session_id, cycle_number, started_at ASC
+    `).all() as Array<{ id: string; session_id: string; cycle_number: number; started_at: string }>;
+
+    if (dupRows.length > 0) {
+      const grouped = new Map<string, typeof dupRows>();
+      for (const r of dupRows) {
+        const key = `${r.session_id}:${r.cycle_number}`;
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(r);
+      }
+      const maxStmt = db.prepare(
+        'SELECT COALESCE(MAX(cycle_number), -1) + 1 AS next FROM auto_cycles WHERE session_id = ?',
+      );
+      const updateStmt = db.prepare('UPDATE auto_cycles SET cycle_number = ? WHERE id = ?');
+      const dedupe = db.transaction(() => {
+        for (const [key, rows] of grouped) {
+          const sessionId = key.split(':')[0];
+          for (let i = 1; i < rows.length; i++) {
+            const next = (maxStmt.get(sessionId) as { next: number }).next;
+            updateStmt.run(next, rows[i].id);
+          }
+        }
+      });
+      dedupe();
+    }
+
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_auto_cycles_unique ON auto_cycles(session_id, cycle_number)');
+  } catch {
+    // Index already exists or unexpected state; safe to ignore on migration replay
+  }
+
   // Insert default settings if not exist
   const insertSetting = db.prepare(
     'INSERT OR IGNORE INTO auto_settings (key, value) VALUES (?, ?)'
@@ -400,7 +448,13 @@ export function getLatestAutoSession(): AutoSession | undefined {
 
 export function createAutoCycle(data: {
   session_id: string;
-  cycle_number: number;
+  /**
+   * Optional. Omit to let the DB assign the next per-session cycle_number
+   * atomically (MAX+1 inside a transaction). Pass explicitly only for tests
+   * that need a specific value; if the (session_id, cycle_number) pair
+   * already exists the UNIQUE index will reject the insert.
+   */
+  cycle_number?: number;
   phase: string;
   finding_id?: string | null;
   prompt_used?: string | null;
@@ -410,10 +464,20 @@ export function createAutoCycle(data: {
   const id = uuidv4();
   const now = new Date().toISOString();
 
-  db.prepare(
-    'INSERT INTO auto_cycles (id, session_id, cycle_number, phase, status, finding_id, prompt_used, output, git_checkpoint, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(id, data.session_id, data.cycle_number, data.phase, 'running', data.finding_id ?? null, data.prompt_used ?? null, '', data.git_checkpoint ?? null, now);
+  const txn = db.transaction(() => {
+    let cycleNumber = data.cycle_number;
+    if (cycleNumber === undefined) {
+      const row = db.prepare(
+        'SELECT COALESCE(MAX(cycle_number), -1) + 1 AS next FROM auto_cycles WHERE session_id = ?',
+      ).get(data.session_id) as { next: number };
+      cycleNumber = row.next;
+    }
+    db.prepare(
+      'INSERT INTO auto_cycles (id, session_id, cycle_number, phase, status, finding_id, prompt_used, output, git_checkpoint, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(id, data.session_id, cycleNumber, data.phase, 'running', data.finding_id ?? null, data.prompt_used ?? null, '', data.git_checkpoint ?? null, now);
+  });
 
+  txn();
   return getAutoCycle(id)!;
 }
 

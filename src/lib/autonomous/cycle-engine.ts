@@ -472,14 +472,14 @@ class CycleEngineImpl {
       gitCheckpoint = await gitManager.createCheckpoint();
     }
 
-    // Create cycle with phase='pipeline'
+    // Create cycle with phase='pipeline' — DB assigns cycle_number atomically
     const cycle = createAutoCycle({
       session_id: this.currentSessionId,
-      cycle_number: this.cycleNumber,
       phase: 'pipeline',
       finding_id: findingToFix?.id,
       git_checkpoint: gitCheckpoint,
     });
+    this.cycleNumber = cycle.cycle_number;
     this.currentCycleId = cycle.id;
     this.currentPhase = 'pipeline' as AutoPhase;
     this.currentOutput = '';
@@ -823,7 +823,6 @@ class CycleEngineImpl {
       session,
       this.emit.bind(this),
       settings.max_parallel_pipelines,
-      this.cycleNumber,
     );
 
     await this.workerPool.start(); // Blocks until all workers finish (no more findings)

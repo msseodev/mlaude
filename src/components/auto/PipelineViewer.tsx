@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
+import { StreamOutputViewer } from '@/components/StreamOutputViewer';
+import type { StreamEntry } from '@/components/StreamOutputViewer';
 
 interface PipelineAgent {
   id: string;
@@ -13,9 +14,7 @@ interface PipelineViewerProps {
   cycleNumber: number;
   agents: PipelineAgent[];
   currentAgentId: string | null;
-  output: Array<{ type: string; text: string }>;
-  outputRef: React.RefObject<HTMLDivElement | null>;
-  autoScrollRef: React.MutableRefObject<boolean>;
+  output: StreamEntry[];
 }
 
 const statusIcon = (status: string) => {
@@ -28,18 +27,9 @@ const statusIcon = (status: string) => {
   }
 };
 
-export function PipelineViewer({ cycleNumber, agents, currentAgentId, output, outputRef, autoScrollRef }: PipelineViewerProps) {
+export function PipelineViewer({ cycleNumber, agents, currentAgentId, output }: PipelineViewerProps) {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-
-  // Show current running agent's output by default
   const activeAgentId = selectedAgent || currentAgentId || (agents.length > 0 ? agents[0].id : null);
-
-  function handleScroll() {
-    const el = outputRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    autoScrollRef.current = atBottom;
-  }
 
   return (
     <div className="mb-4">
@@ -66,30 +56,8 @@ export function PipelineViewer({ cycleNumber, agents, currentAgentId, output, ou
         ))}
       </div>
 
-      {/* Output viewer */}
-      <div
-        ref={outputRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg p-4 font-mono text-sm leading-relaxed text-gray-100"
-        style={{ backgroundColor: '#1E1E1E', minHeight: 300 }}
-      >
-        {output.length === 0 ? (
-          <p className="text-gray-500">Waiting for output...</p>
-        ) : (
-          output.map((entry, i) => {
-            let color = 'text-gray-100';
-            if (entry.type === 'tool_start' || entry.type === 'tool_end') color = 'text-blue-400';
-            else if (entry.type === 'cycle_start' || entry.type === 'phase_change' || entry.type === 'agent_start') color = 'text-green-400 font-bold';
-            else if (entry.type === 'cycle_complete' || entry.type === 'agent_complete') color = 'text-green-400';
-            else if (entry.type === 'cycle_failed' || entry.type === 'agent_failed') color = 'text-red-400';
-            else if (entry.type === 'review_iteration') color = 'text-yellow-400';
-            if (entry.type === 'text') {
-              return <MarkdownOutput key={i} text={entry.text} />;
-            }
-            return <span key={i} className={color}>{entry.text}</span>;
-          })
-        )}
-      </div>
+      {/* Shared streaming output viewer — single source of truth for entry rendering. */}
+      <StreamOutputViewer entries={output} emptyMessage="Waiting for output..." maxHeight="32rem" />
     </div>
   );
 }

@@ -43,13 +43,13 @@ export interface StreamOutputViewerProps {
   emptyMessage?: string;
 }
 
-/** Tailwind class(es) for each entry type. */
+/** Tailwind class(es) for each entry type. Single source of truth for all colours. */
 function colorForType(type: string): string {
   switch (type) {
     case 'tool_call':
     case 'tool_start':
     case 'tool_end':
-      return 'text-blue-400';
+      return 'text-cyan-400 font-semibold';
     case 'cycle_start':
     case 'phase_change':
     case 'agent_start':
@@ -102,33 +102,51 @@ export function StreamOutputViewer({
 
   function renderEntry(entry: StreamEntry, i: number) {
     switch (entry.type) {
-      case 'text':
-        return <MarkdownOutput key={i} text={entry.text} />;
+      case 'text': {
+        // Render markdown (bold, inline code, lists, links, code blocks — the
+        // kinds of things agents emit inline while streaming).
+        // Stream chunks occasionally arrive with 3+ consecutive newlines as
+        // padding; each pair of blank lines would otherwise produce an empty
+        // <p>, ballooning the viewer. Collapse to at most one blank line.
+        const normalized = entry.text.replace(/\n{3,}/g, '\n\n');
+        return <MarkdownOutput key={i} text={normalized} />;
+      }
 
-      case 'tool_call':
-        return (
-          <div key={i} className="my-1">
-            <span className="text-cyan-400 font-semibold">{entry.text}</span>
-          </div>
-        );
-
-      case 'tool_result':
+      case 'tool_result': {
+        // Cap tool_result to a few lines so grep/read output doesn't spawn
+        // an inner scrollbar (which would collide with the viewer's own
+        // scroll — the ugly double-scroll case). Extra lines collapse to
+        // a single italic "N more lines" indicator.
+        const MAX_LINES = 8;
+        const lines = entry.text.split('\n');
+        const truncated = lines.length > MAX_LINES;
+        const shown = truncated ? lines.slice(0, MAX_LINES).join('\n') : entry.text;
         return (
           <div
             key={i}
             className="mb-2 ml-2 text-gray-400 border-l-2 border-gray-600 pl-2 text-xs leading-relaxed"
-            style={{ maxHeight: 300, overflow: 'auto' }}
           >
-            <pre className="whitespace-pre-wrap">{entry.text}</pre>
+            <pre className="whitespace-pre-wrap">{shown}</pre>
+            {truncated && (
+              <div className="italic text-gray-500">
+                … {lines.length - MAX_LINES} more lines
+              </div>
+            )}
           </div>
         );
+      }
 
       default: {
+        // tool_call, tool_start, tool_end, prompt_*, cycle_*, agent_*, phase_change,
+        // review_iteration, and any future unknown types all land here.
+        // Each entry is a block-level div so it never bleeds onto the same visual
+        // line as an adjacent entry regardless of neighbour type (fixes Problems 1+2).
+        // Color is driven entirely by colorForType — no duplicated declarations.
         const colour = colorForType(entry.type);
         return (
-          <span key={i} className={colour}>
+          <div key={i} className={colour}>
             {entry.text}
-          </span>
+          </div>
         );
       }
     }

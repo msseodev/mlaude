@@ -63,8 +63,6 @@ export default function AutoDashboardPage() {
   const [entriesByCycle, setEntriesByCycle] = useState<Record<string, StreamEntry[]>>({});
   const [activeParallelTab, setActiveParallelTab] = useState<string | null>(null);
 
-  const outputRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef(true);
   const fetchCyclesRef = useRef<() => void>(() => {});
 
   const sessionStatus = status?.status ?? 'idle';
@@ -191,26 +189,10 @@ export default function AutoDashboardPage() {
           }
           break;
         }
-        case 'tool_start': {
-          const name = String(event.data.name ?? 'tool');
-          const entry: StreamEntry = { type: 'tool_start', text: `--- Tool: ${name} ---` };
-          if (isParallel && cycleId) {
-            appendToCycleEntries(cycleId, entry);
-          } else {
-            setOutput((prev) => [...prev, entry]);
-          }
+        case 'tool_start':
+        case 'tool_end':
+          // Rendered visually via tool_input and tool_result instead (matches manual mode).
           break;
-        }
-        case 'tool_end': {
-          const name = String(event.data.name ?? 'tool');
-          const entry: StreamEntry = { type: 'tool_end', text: `--- End: ${name} ---` };
-          if (isParallel && cycleId) {
-            appendToCycleEntries(cycleId, entry);
-          } else {
-            setOutput((prev) => [...prev, entry]);
-          }
-          break;
-        }
         case 'tool_input': {
           const tool = String(event.data.tool ?? 'unknown');
           const input = (event.data.input as Record<string, unknown>) ?? {};
@@ -459,13 +441,8 @@ export default function AutoDashboardPage() {
     fetchRecentCycles();
   }, [fetchRecentCycles]);
 
-  // Auto-scroll output (triggers on single-stream output or parallel entries)
-  useEffect(() => {
-    const el = outputRef.current;
-    if (el && autoScrollRef.current) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [output, entriesByCycle, activeParallelTab]);
+  // Auto-scroll is now handled internally by StreamOutputViewer in every consumer
+  // (PipelineViewer + ParallelStreamViewer + the inline viewer fallback).
 
   // Control handlers
   async function handleStart(targetProject?: string, initialPrompt?: string, forceDiscovery?: boolean) {
@@ -710,8 +687,6 @@ export default function AutoDashboardPage() {
             agents={pipelineAgents}
             currentAgentId={currentAgentId}
             output={output}
-            outputRef={outputRef}
-            autoScrollRef={autoScrollRef}
           />
         ) : (
           <div className="mb-4">

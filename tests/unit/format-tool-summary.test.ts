@@ -69,4 +69,94 @@ describe('formatToolSummary', () => {
     const result = formatToolSummary('Bash', {});
     expect(result).toBe('');
   });
+
+  // ── Problem 5: new tool cases ─────────────────────────────────────────────
+
+  describe('TeamCreate', () => {
+    it('uses team_name field', () => {
+      expect(formatToolSummary('TeamCreate', { team_name: 'planning-team' })).toBe('planning-team');
+    });
+
+    it('falls back to "team" when team_name is missing', () => {
+      expect(formatToolSummary('TeamCreate', {})).toBe('team');
+    });
+  });
+
+  describe('TodoWrite', () => {
+    it('shows count and first todo content when todos is an array', () => {
+      const todos = [
+        { content: 'Analyse requirements', status: 'pending' },
+        { content: 'Write tests', status: 'pending' },
+      ];
+      const result = formatToolSummary('TodoWrite', { todos });
+      expect(result).toMatch(/^2 todos/);
+      expect(result).toContain('Analyse requirements');
+    });
+
+    it('truncates first todo content to ~60 chars', () => {
+      const longContent = 'A'.repeat(80);
+      const todos = [{ content: longContent, status: 'pending' }];
+      const result = formatToolSummary('TodoWrite', { todos });
+      // Should include truncated content (not full 80 chars)
+      expect(result.length).toBeLessThan(longContent.length + 20);
+    });
+
+    it('uses activeForm when content is missing', () => {
+      const todos = [{ activeForm: 'Fix the bug', status: 'pending' }];
+      const result = formatToolSummary('TodoWrite', { todos });
+      expect(result).toContain('Fix the bug');
+    });
+
+    it('shows only count when first todo has neither content nor activeForm', () => {
+      const todos = [{ status: 'pending' }, { status: 'done' }];
+      const result = formatToolSummary('TodoWrite', { todos });
+      expect(result).toBe('2 todos');
+    });
+
+    it('handles non-array todos gracefully (falls through to default)', () => {
+      // When todos is not an array, should not crash
+      expect(() => formatToolSummary('TodoWrite', { todos: 'invalid' })).not.toThrow();
+    });
+
+    it('handles missing todos field gracefully', () => {
+      expect(() => formatToolSummary('TodoWrite', {})).not.toThrow();
+    });
+  });
+
+  describe('SendMessage', () => {
+    it('formats to and summary', () => {
+      const result = formatToolSummary('SendMessage', { to: 'developer', summary: 'Please fix bug' });
+      expect(result).toBe('→developer: Please fix bug');
+    });
+
+    it('falls back to message.type when summary is missing', () => {
+      const result = formatToolSummary('SendMessage', { to: 'reviewer', message: { type: 'task' } });
+      expect(result).toBe('→reviewer: task');
+    });
+
+    it('trims trailing ": " when both summary and message.type are absent', () => {
+      const result = formatToolSummary('SendMessage', { to: 'planner' });
+      expect(result).toBe('→planner');
+    });
+
+    it('uses "?" when to is missing', () => {
+      const result = formatToolSummary('SendMessage', { summary: 'hello' });
+      expect(result).toBe('→?: hello');
+    });
+
+    it('handles completely empty input', () => {
+      const result = formatToolSummary('SendMessage', {});
+      expect(result).toBe('→?');
+    });
+  });
+
+  describe('ToolSearch', () => {
+    it('uses query field', () => {
+      expect(formatToolSummary('ToolSearch', { query: 'file read tools' })).toBe('file read tools');
+    });
+
+    it('returns empty string when query is missing', () => {
+      expect(formatToolSummary('ToolSearch', {})).toBe('');
+    });
+  });
 });

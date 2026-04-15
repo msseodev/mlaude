@@ -317,18 +317,33 @@ export class ClaudeExecutor {
       }
 
       case 'user': {
-        // Tool results come as user events with tool_result content
+        // Tool results come as user events with tool_result content.
+        // block.content is `string` for simple tools (Bash/Read/etc.) but
+        // `Array<{type, text}>` for Agent/Task and any tool that returns
+        // structured content blocks. Normalize to string here so downstream
+        // renderers don't need to branch.
         const userEvent = rawEvent as {
           type: string;
-          message?: { content?: Array<{ type: string; tool_use_id?: string; content?: string; is_error?: boolean }> };
+          message?: {
+            content?: Array<{
+              type: string;
+              tool_use_id?: string;
+              content?: string | Array<{ type: string; text?: string }>;
+              is_error?: boolean;
+            }>;
+          };
           tool_use_result?: { stdout?: string; stderr?: string; interrupted?: boolean };
         };
         if (userEvent.message?.content) {
           for (const block of userEvent.message.content) {
             if (block.type === 'tool_result') {
+              const raw = block.content;
+              const content = Array.isArray(raw)
+                ? raw.map(b => (typeof b === 'string' ? b : b.text ?? '')).join('')
+                : (raw ?? '');
               this.emitSSE('tool_result', {
                 tool_use_id: block.tool_use_id ?? '',
-                content: block.content ?? '',
+                content,
                 is_error: block.is_error ?? false,
                 stdout: userEvent.tool_use_result?.stdout ?? '',
                 stderr: userEvent.tool_use_result?.stderr ?? '',

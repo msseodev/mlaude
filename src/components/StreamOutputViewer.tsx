@@ -159,7 +159,7 @@ export function StreamOutputViewer({
       ref={containerRef}
       onScroll={handleScroll}
       className="flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg p-4 font-mono text-sm leading-relaxed"
-      style={{ backgroundColor: '#1E1E1E', maxHeight }}
+      style={{ backgroundColor: '#1E1E1E', ...(maxHeight !== 'none' && { maxHeight }) }}
     >
       {entries.length === 0 ? (
         <p className="text-gray-500">{emptyMessage}</p>

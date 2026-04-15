@@ -359,7 +359,7 @@ function RunPageContent() {
       )}
 
       {/* Output Viewer */}
-      <StreamOutputViewer entries={output} emptyMessage="Output will appear here when the queue is running..." />
+      <StreamOutputViewer entries={output} maxHeight="none" emptyMessage="Output will appear here when the queue is running..." />
     </div>
   );
 }

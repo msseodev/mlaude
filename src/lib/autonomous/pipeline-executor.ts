@@ -731,9 +731,15 @@ export class PipelineExecutor {
             this.lastActivityAt = new Date().toISOString();
             this.totalOutputSize += Buffer.byteLength(text, 'utf-8');
           }
+          // Augment tool_input and tool_result with agentName so the
+          // frontend can attribute them to the correct agent in parallel runs.
+          const data =
+            event.type === 'tool_input' || event.type === 'tool_result'
+              ? { ...event.data, agentName: agent.display_name }
+              : event.data;
           this.emit({
             type: event.type as AutoSSEEvent['type'],
-            data: event.data,
+            data,
             timestamp: event.timestamp,
           });
         },

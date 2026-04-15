@@ -170,6 +170,8 @@ export type AutoSSEEventType =
   | 'designer_iteration'
   | 'text_delta'
   | 'tool_start'
+  | 'tool_input'
+  | 'tool_result'
   | 'tool_end'
   | 'rate_limit'
   | 'session_status'

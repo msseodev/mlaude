@@ -1,14 +1,16 @@
 'use client';
 
-import { Suspense, useState, useCallback, useRef, useEffect } from 'react';
+import { Suspense, useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSSE } from '@/hooks/useSSE';
 import { useRunStatus } from '@/hooks/useRunStatus';
 import { Button } from '@/components/ui/Button';
 import { Badge, statusBadgeVariant } from '@/components/ui/Badge';
 import { useToast } from '@/components/ui/Toast';
-import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
 import { RateLimitBanner } from '@/components/RateLimitBanner';
+import { StreamOutputViewer } from '@/components/StreamOutputViewer';
+import type { StreamEntry } from '@/components/StreamOutputViewer';
+import { formatToolSummary } from '@/lib/format-tool-summary';
 import type { SSEEvent, SessionStatus, Plan, PlanWithItems } from '@/types';
 
 const MAX_OUTPUT_ENTRIES = 10000;
@@ -36,7 +38,7 @@ function RunPageContent() {
   const searchParams = useSearchParams();
   const { status, refresh } = useRunStatus();
   const { showToast } = useToast();
-  const [output, setOutput] = useState<Array<{ type: string; text: string }>>([]);
+  const [output, setOutput] = useState<StreamEntry[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prompts, setPrompts] = useState<PromptOption[]>([]);
@@ -347,7 +349,7 @@ function RunPageContent() {
       )}
 
       {/* Output Viewer */}
-      <OutputViewer entries={output} />
+      <StreamOutputViewer entries={output} emptyMessage="Output will appear here when the queue is running..." />
     </div>
   );
 }
@@ -504,106 +506,6 @@ function PromptProgress({
         <p className="mt-2 text-xs text-gray-500">
           Running: {currentTitle}
         </p>
-      )}
-    </div>
-  );
-}
-
-// --- Tool Display Helpers ---
-
-function formatToolSummary(tool: string, input: Record<string, unknown>): string {
-  let summary = '';
-  switch (tool) {
-    case 'Bash': summary = (input.command as string) ?? ''; break;
-    case 'Read': summary = (input.file_path as string) ?? ''; break;
-    case 'Write': summary = (input.file_path as string) ?? ''; break;
-    case 'Edit': summary = (input.file_path as string) ?? ''; break;
-    case 'Grep': {
-      const pattern = (input.pattern as string) ?? '';
-      const path = (input.path as string) ?? '';
-      summary = path ? `${pattern}, ${path}` : pattern;
-      break;
-    }
-    case 'Glob': summary = (input.pattern as string) ?? ''; break;
-    case 'Agent': summary = (input.description as string) ?? ''; break;
-    case 'WebSearch': summary = (input.query as string) ?? ''; break;
-    case 'WebFetch': summary = (input.url as string) ?? ''; break;
-    default: {
-      const json = JSON.stringify(input);
-      summary = json.length > 120 ? json.slice(0, 120) + '...' : json;
-    }
-  }
-  // Truncate long summaries
-  if (summary.length > 200) {
-    summary = summary.slice(0, 200) + '...';
-  }
-  return summary;
-}
-
-// --- OutputViewer ---
-
-function OutputViewer({
-  entries,
-}: {
-  entries: Array<{ type: string; text: string }>;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const autoScrollRef = useRef(true);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (el && autoScrollRef.current) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [entries]);
-
-  function handleScroll() {
-    const el = containerRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    autoScrollRef.current = atBottom;
-  }
-
-  const renderEntry = (entry: { type: string; text: string }, i: number) => {
-    switch (entry.type) {
-      case 'text':
-        return <MarkdownOutput key={i} text={entry.text} />;
-      case 'tool_call':
-        return (
-          <div key={i} className="my-1">
-            <span className="text-cyan-400 font-semibold">{entry.text}</span>
-          </div>
-        );
-      case 'tool_result':
-        return (
-          <div key={i} className="mb-2 ml-2 text-gray-400 border-l-2 border-gray-600 pl-2 text-xs leading-relaxed" style={{ maxHeight: 300, overflow: 'auto' }}>
-            <pre className="whitespace-pre-wrap">{entry.text}</pre>
-          </div>
-        );
-      case 'prompt_start':
-        return <span key={i} className="text-green-400 font-bold">{entry.text}</span>;
-      case 'prompt_complete':
-        return <span key={i} className="text-green-400">{entry.text}</span>;
-      case 'prompt_failed':
-        return <span key={i} className="text-red-400">{entry.text}</span>;
-      default:
-        return <span key={i} className="text-gray-100">{entry.text}</span>;
-    }
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg p-4 font-mono text-sm leading-relaxed"
-      style={{ backgroundColor: '#1E1E1E', minHeight: 300 }}
-    >
-      {entries.length === 0 ? (
-        <p className="text-gray-500">
-          Output will appear here when the queue is running...
-        </p>
-      ) : (
-        entries.map((entry, i) => renderEntry(entry, i))
       )}
     </div>
   );

@@ -8,8 +8,11 @@ import { Badge, statusBadgeVariant } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { PipelineViewer } from '@/components/auto/PipelineViewer';
-import { MarkdownOutput } from '@/components/auto/MarkdownOutput';
 import { RateLimitBanner } from '@/components/RateLimitBanner';
+import { StreamOutputViewer } from '@/components/StreamOutputViewer';
+import { ParallelStreamViewer } from '@/components/ParallelStreamViewer';
+import type { StreamEntry } from '@/components/StreamOutputViewer';
+import { formatToolSummary } from '@/lib/format-tool-summary';
 import type { AutoSSEEvent, AutoUserPrompt } from '@/types';
 
 const MAX_OUTPUT_ENTRIES = 10000;
@@ -41,7 +44,7 @@ interface ParallelCycleInfo {
 export default function AutoDashboardPage() {
   const { status, refresh } = useAutoStatus();
   const { showToast } = useToast();
-  const [output, setOutput] = useState<Array<{ type: string; text: string }>>([]);
+  const [output, setOutput] = useState<StreamEntry[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
   const [recentCycles, setRecentCycles] = useState<RecentCycle[]>([]);
 
@@ -57,7 +60,7 @@ export default function AutoDashboardPage() {
   // Parallel batch state
   const [isParallelBatch, setIsParallelBatch] = useState(false);
   const [parallelCycles, setParallelCycles] = useState<ParallelCycleInfo[]>([]);
-  const [entriesByCycle, setEntriesByCycle] = useState<Record<string, Array<{ type: string; text: string }>>>({});
+  const [entriesByCycle, setEntriesByCycle] = useState<Record<string, StreamEntry[]>>({});
   const [activeParallelTab, setActiveParallelTab] = useState<string | null>(null);
 
   const outputRef = useRef<HTMLDivElement>(null);
@@ -96,7 +99,7 @@ export default function AutoDashboardPage() {
 
   // Helper: append an entry to a specific cycle's entries (for parallel mode)
   const appendToCycleEntries = useCallback(
-    (cycleId: string, entry: { type: string; text: string }) => {
+    (cycleId: string, entry: StreamEntry) => {
       setEntriesByCycle((prev) => {
         const existing = prev[cycleId] ?? [];
         const next = [...existing, entry];
@@ -190,7 +193,7 @@ export default function AutoDashboardPage() {
         }
         case 'tool_start': {
           const name = String(event.data.name ?? 'tool');
-          const entry = { type: 'tool_start', text: `--- Tool: ${name} ---` };
+          const entry: StreamEntry = { type: 'tool_start', text: `--- Tool: ${name} ---` };
           if (isParallel && cycleId) {
             appendToCycleEntries(cycleId, entry);
           } else {
@@ -200,11 +203,45 @@ export default function AutoDashboardPage() {
         }
         case 'tool_end': {
           const name = String(event.data.name ?? 'tool');
-          const entry = { type: 'tool_end', text: `--- End: ${name} ---` };
+          const entry: StreamEntry = { type: 'tool_end', text: `--- End: ${name} ---` };
           if (isParallel && cycleId) {
             appendToCycleEntries(cycleId, entry);
           } else {
             setOutput((prev) => [...prev, entry]);
+          }
+          break;
+        }
+        case 'tool_input': {
+          const tool = String(event.data.tool ?? 'unknown');
+          const input = (event.data.input as Record<string, unknown>) ?? {};
+          const summary = formatToolSummary(tool, input);
+          const entry: StreamEntry = { type: 'tool_call', text: `\u2588 ${tool}(${summary})` };
+          if (isParallel && cycleId) {
+            appendToCycleEntries(cycleId, entry);
+          } else {
+            setOutput((prev) => {
+              const next = [...prev, entry];
+              return next.length > MAX_OUTPUT_ENTRIES ? next.slice(-MAX_OUTPUT_ENTRIES) : next;
+            });
+          }
+          break;
+        }
+        case 'tool_result': {
+          const content = String(event.data.content ?? event.data.stdout ?? '');
+          const isError = Boolean(event.data.is_error);
+          const stderr = String(event.data.stderr ?? '');
+          const display = isError && stderr ? stderr : content;
+          const truncated = display.length > 1000 ? display.slice(0, 1000) + '...' : display;
+          if (truncated) {
+            const entry: StreamEntry = { type: 'tool_result', text: `  \u23BF  ${truncated}` };
+            if (isParallel && cycleId) {
+              appendToCycleEntries(cycleId, entry);
+            } else {
+              setOutput((prev) => {
+                const next = [...prev, entry];
+                return next.length > MAX_OUTPUT_ENTRIES ? next.slice(-MAX_OUTPUT_ENTRIES) : next;
+              });
+            }
           }
           break;
         }
@@ -649,14 +686,24 @@ export default function AutoDashboardPage() {
       {/* Current Cycle Panel / Pipeline Viewer / Parallel Tabs */}
       {sessionStatus !== 'idle' && (
         isParallelBatch && parallelCycles.length > 0 ? (
-          <ParallelBatchViewer
-            cycles={parallelCycles}
-            entriesByCycle={entriesByCycle}
-            activeTab={activeParallelTab}
-            onTabChange={setActiveParallelTab}
-            outputRef={outputRef}
-            autoScrollRef={autoScrollRef}
-          />
+          <div className="mb-4">
+            <div className="mb-2 flex items-center gap-2">
+              <h2 className="text-sm font-medium text-gray-700">
+                Parallel Batch — {parallelCycles.length} cycles
+              </h2>
+            </div>
+            <ParallelStreamViewer
+              tabs={parallelCycles.map((c) => ({
+                id: c.id,
+                label: `Cycle ${c.number}${c.findingTitle ? ` — ${c.findingTitle.length > 30 ? c.findingTitle.slice(0, 30) + '...' : c.findingTitle}` : c.agentName ? ` — ${c.agentName}` : ''}`,
+                entries: entriesByCycle[c.id] ?? [],
+                status: c.status,
+              }))}
+              activeTabId={activeParallelTab ?? undefined}
+              onTabChange={setActiveParallelTab}
+              emptyMessage="Waiting for output..."
+            />
+          </div>
         ) : pipelineAgents.length > 0 ? (
           <PipelineViewer
             cycleNumber={status?.currentCycle ?? 0}
@@ -678,7 +725,7 @@ export default function AutoDashboardPage() {
                 </span>
               )}
             </div>
-            <OutputViewer entries={output} outputRef={outputRef} autoScrollRef={autoScrollRef} />
+            <StreamOutputViewer entries={output} emptyMessage="Waiting for output..." />
           </div>
         )
       )}
@@ -1155,208 +1202,6 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <p className="text-sm text-gray-500">{label}</p>
       <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
-    </div>
-  );
-}
-
-// --- OutputViewer ---
-
-function OutputViewer({
-  entries,
-  outputRef,
-  autoScrollRef,
-}: {
-  entries: Array<{ type: string; text: string }>;
-  outputRef: React.RefObject<HTMLDivElement | null>;
-  autoScrollRef: React.MutableRefObject<boolean>;
-}) {
-  function handleScroll() {
-    const el = outputRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    autoScrollRef.current = atBottom;
-  }
-
-  const colorForType = (type: string) => {
-    switch (type) {
-      case 'tool_start':
-      case 'tool_end':
-        return 'text-blue-400';
-      case 'cycle_start':
-      case 'phase_change':
-        return 'text-green-400 font-bold';
-      case 'cycle_complete':
-        return 'text-green-400';
-      case 'cycle_failed':
-        return 'text-red-400';
-      default:
-        return 'text-gray-100';
-    }
-  };
-
-  return (
-    <div
-      ref={outputRef}
-      onScroll={handleScroll}
-      className="flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg p-4 font-mono text-sm leading-relaxed text-gray-100"
-      style={{ backgroundColor: '#1E1E1E', minHeight: 300 }}
-    >
-      {entries.length === 0 ? (
-        <p className="text-gray-500">
-          Waiting for output...
-        </p>
-      ) : (
-        entries.map((entry, i) =>
-          entry.type === 'text' ? (
-            <MarkdownOutput key={i} text={entry.text} />
-          ) : (
-            <span key={i} className={colorForType(entry.type)}>
-              {entry.text}
-            </span>
-          )
-        )
-      )}
-    </div>
-  );
-}
-
-// --- ParallelBatchViewer ---
-
-function ParallelBatchViewer({
-  cycles,
-  entriesByCycle,
-  activeTab,
-  onTabChange,
-  outputRef,
-  autoScrollRef,
-}: {
-  cycles: ParallelCycleInfo[];
-  entriesByCycle: Record<string, Array<{ type: string; text: string }>>;
-  activeTab: string | null;
-  onTabChange: (id: string) => void;
-  outputRef: React.RefObject<HTMLDivElement | null>;
-  autoScrollRef: React.MutableRefObject<boolean>;
-}) {
-  const activeCycleId = activeTab ?? (cycles.length > 0 ? cycles[0].id : null);
-  const activeCycle = cycles.find(c => c.id === activeCycleId) ?? null;
-  const activeEntries = activeCycleId ? (entriesByCycle[activeCycleId] ?? []) : [];
-
-  function handleScroll() {
-    const el = outputRef.current;
-    if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-    autoScrollRef.current = atBottom;
-  }
-
-  const statusColor = (s: ParallelCycleInfo['status']) => {
-    switch (s) {
-      case 'running': return 'bg-blue-400';
-      case 'completed': return 'bg-green-400';
-      case 'failed': return 'bg-red-400';
-    }
-  };
-
-  const colorForType = (type: string) => {
-    switch (type) {
-      case 'tool_start':
-      case 'tool_end':
-        return 'text-blue-400';
-      case 'cycle_start':
-      case 'phase_change':
-      case 'agent_start':
-        return 'text-green-400 font-bold';
-      case 'cycle_complete':
-      case 'agent_complete':
-        return 'text-green-400';
-      case 'cycle_failed':
-      case 'agent_failed':
-        return 'text-red-400';
-      case 'review_iteration':
-        return 'text-yellow-400';
-      default:
-        return 'text-gray-100';
-    }
-  };
-
-  return (
-    <div className="mb-4">
-      <div className="mb-2 flex items-center gap-2">
-        <h2 className="text-sm font-medium text-gray-700">
-          Parallel Batch — {cycles.length} cycles
-        </h2>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex border-b border-gray-700 mb-2">
-        {cycles.map((cycle) => (
-          <button
-            key={cycle.id}
-            onClick={() => onTabChange(cycle.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeCycleId === cycle.id
-                ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-gray-400 hover:text-gray-300'
-            }`}
-          >
-            Cycle {cycle.number}
-            {cycle.findingTitle && (
-              <span className="ml-1 text-xs opacity-75">
-                {cycle.findingTitle.length > 30
-                  ? cycle.findingTitle.slice(0, 30) + '...'
-                  : cycle.findingTitle}
-              </span>
-            )}
-            {!cycle.findingTitle && cycle.agentName && (
-              <span className="ml-1 text-xs opacity-75">{cycle.agentName}</span>
-            )}
-            <span className={`ml-2 inline-block h-2 w-2 rounded-full ${statusColor(cycle.status)}`} />
-          </button>
-        ))}
-      </div>
-
-      {/* Agent progress for active tab */}
-      {activeCycle && activeCycle.agents.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1">
-          {activeCycle.agents.map((agent) => (
-            <span
-              key={agent.id}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium ${
-                agent.status === 'running' ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-300'
-                : agent.status === 'completed' ? 'bg-green-50 text-green-700'
-                : agent.status === 'failed' ? 'bg-red-50 text-red-700'
-                : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              <span>{agent.status === 'completed' ? '\u2705' : agent.status === 'running' ? '\u23F3' : agent.status === 'failed' ? '\u274C' : '\u2B1C'}</span>
-              <span>{agent.name}</span>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Output viewer for active tab */}
-      <div
-        ref={outputRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg p-4 font-mono text-sm leading-relaxed text-gray-100"
-        style={{ backgroundColor: '#1E1E1E', minHeight: 300 }}
-      >
-        {activeEntries.length === 0 ? (
-          <p className="text-gray-500">
-            Waiting for output...
-          </p>
-        ) : (
-          activeEntries.map((entry, i) =>
-            entry.type === 'text' ? (
-              <MarkdownOutput key={i} text={entry.text} />
-            ) : (
-              <span key={i} className={colorForType(entry.type)}>
-                {entry.text}
-              </span>
-            )
-          )
-        )}
-      </div>
     </div>
   );
 }

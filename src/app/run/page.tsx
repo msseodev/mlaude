@@ -182,12 +182,22 @@ function RunPageContent() {
           refresh();
           break;
         }
+        case 'error': {
+          const errorMsg = (event.data.message as string) ?? '';
+          if (errorMsg) {
+            setOutput((prev) => [
+              ...prev,
+              { type: 'cli_error', text: errorMsg },
+            ]);
+          }
+          refresh();
+          break;
+        }
         case 'rate_limit':
         case 'rate_limit_wait':
         case 'queue_complete':
         case 'queue_stopped':
         case 'session_status':
-        case 'error':
           refresh();
           break;
       }

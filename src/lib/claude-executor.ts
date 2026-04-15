@@ -372,10 +372,18 @@ export class ClaudeExecutor {
       }
 
       case 'result': {
-        const result = event as { cost_usd?: number; duration_ms?: number; total_cost_usd?: number };
+        const result = event as { cost_usd?: number; duration_ms?: number; total_cost_usd?: number; is_error?: boolean; result?: string; subtype?: string };
         if (result.cost_usd !== undefined) this.lastCostUsd = result.cost_usd;
         if (result.total_cost_usd !== undefined) this.lastCostUsd = result.total_cost_usd;
         if (result.duration_ms !== undefined) this.lastDurationMs = result.duration_ms;
+
+        // Capture error messages from result events into output
+        if (result.is_error && result.result) {
+          const errorText = `[CLI Error] ${result.result}`;
+          console.error(`[claude-executor] ${errorText}`);
+          this.accumulatedOutput += errorText;
+          this.emitSSE('error', { message: errorText });
+        }
         break;
       }
     }

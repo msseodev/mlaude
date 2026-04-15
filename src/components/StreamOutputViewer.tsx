@@ -64,6 +64,8 @@ function colorForType(type: string): string {
     case 'prompt_failed':
     case 'agent_failed':
       return 'text-red-400';
+    case 'cli_error':
+      return 'text-red-400 font-semibold';
     case 'review_iteration':
       return 'text-yellow-400';
     default:

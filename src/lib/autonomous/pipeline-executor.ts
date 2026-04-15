@@ -41,6 +41,7 @@ export interface PipelineResult {
   totalDurationMs: number;
   qaResult?: { passed: boolean; testOutput: string };
   qaScreenshots?: string[];
+  qaFailures?: Array<{ test_name?: string; screenshot?: string }>;
   blockerInfo?: { agentName: string; reason: string };
   createdFindings?: Array<{ priority: string; title: string; category: string }>;
   abortedByRateLimit?: boolean;
@@ -612,8 +613,11 @@ export class PipelineExecutor {
     );
     let qaResult: PipelineResult['qaResult'];
     let qaScreenshots: string[] | undefined;
+    let qaFailures: PipelineResult['qaFailures'];
     if (qaRun && qaRun.status === 'completed') {
       qaResult = parseQAOutput(qaRun.output);
+      const failures = extractSmokeFailures(qaRun.output);
+      if (failures.length > 0) qaFailures = failures;
       const screenshots = extractSmokeScreenshots(qaRun.output);
       if (screenshots.length > 0) qaScreenshots = screenshots;
     }
@@ -628,6 +632,7 @@ export class PipelineExecutor {
       totalDurationMs,
       qaResult,
       qaScreenshots,
+      qaFailures,
       blockerInfo,
       createdFindings,
     };
@@ -1069,10 +1074,10 @@ export function parseReviewOutput(output: string): { approved: boolean; feedback
 }
 
 /**
- * Extract screenshot paths from a smoke_tester output JSON.
- * Returns only paths that exist on disk. Returns empty array on parse failure.
+ * Extract failure metadata (test_name, screenshot) from a smoke_tester output JSON.
+ * Does NOT filter by file existence. Returns empty array on parse failure.
  */
-export function extractSmokeScreenshots(output: string): string[] {
+export function extractSmokeFailures(output: string): Array<{ test_name?: string; screenshot?: string }> {
   try {
     const summaryIdx = output.indexOf('"summary"');
     if (summaryIdx !== -1) {
@@ -1082,15 +1087,28 @@ export function extractSmokeScreenshots(output: string): string[] {
         if (json) {
           const parsed = JSON.parse(json);
           if (Array.isArray(parsed.failures)) {
-            return parsed.failures
-              .map((f: Record<string, unknown>) => f.screenshot)
-              .filter((p: unknown): p is string => typeof p === 'string' && p.length > 0 && fs.existsSync(p));
+            return parsed.failures.map((f: Record<string, unknown>) => {
+              const entry: { test_name?: string; screenshot?: string } = {};
+              if (typeof f.test_name === 'string') entry.test_name = f.test_name;
+              if (typeof f.screenshot === 'string') entry.screenshot = f.screenshot;
+              return entry;
+            });
           }
         }
       }
     }
   } catch { /* ignore parse failures */ }
   return [];
+}
+
+/**
+ * Extract screenshot paths from a smoke_tester output JSON.
+ * Returns only paths that exist on disk. Returns empty array on parse failure.
+ */
+export function extractSmokeScreenshots(output: string): string[] {
+  return extractSmokeFailures(output)
+    .map(f => f.screenshot)
+    .filter((p): p is string => typeof p === 'string' && p.length > 0 && fs.existsSync(p));
 }
 
 export function parseQAOutput(output: string): { passed: boolean; testOutput: string } {

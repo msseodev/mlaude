@@ -584,25 +584,63 @@ class CycleEngineImpl {
     // Findings are now extracted immediately in pipeline-executor when moderator/designer completes
     const createdFindings = result.createdFindings ?? [];
 
-    // Handle QA failure — reuse existing open test_failure finding or create one
-    if (result.qaResult && !result.qaResult.passed) {
-      const existingTestFailure = getAutoFindings({
-        session_id: this.currentSessionId,
-        category: 'test_failure',
-        status: 'open',
-      }, 1).find(f => f.title === 'QA tests failed in pipeline cycle');
+    // Handle smoke test failure.
+    // If this cycle was already targeting a finding (fix pipeline), path (A) at L636 will
+    // append screenshots to its failure_history — no second finding needed.
+    // If there was no target finding (discovery cycle), create a bug finding so the fix
+    // pipeline picks it up next, seeding failure_history with screenshots for the developer.
+    if (result.qaResult && !result.qaResult.passed && !findingToFix) {
+      const firstFailureName = result.qaFailures?.[0]?.test_name;
+      const smokeTitle = firstFailureName
+        ? `Smoke test failed: ${firstFailureName}`
+        : 'Smoke test failed';
 
-      if (existingTestFailure) {
-        updateAutoFinding(existingTestFailure.id, {
+      const existingSmokeBug = getAutoFindings({
+        session_id: this.currentSessionId,
+        category: 'bug',
+        status: 'open',
+      }, 100).find(f => f.title === smokeTitle);
+
+      if (existingSmokeBug) {
+        // Overwrite the most recent failure_history entry's screenshots so stale
+        // screenshots from an earlier cycle don't linger.
+        const existingHistory: import('./types').FailureHistoryEntry[] = existingSmokeBug.failure_history
+          ? JSON.parse(existingSmokeBug.failure_history)
+          : [];
+        if (existingHistory.length > 0) {
+          existingHistory[existingHistory.length - 1].screenshots = result.qaScreenshots;
+          existingHistory[existingHistory.length - 1].timestamp = now;
+          existingHistory[existingHistory.length - 1].cycle_id = cycle.id;
+        } else {
+          existingHistory.push({
+            cycle_id: cycle.id,
+            approach: '(initial smoke failure — no developer attempt yet)',
+            failure_reason: result.qaResult.testOutput,
+            timestamp: now,
+            screenshots: result.qaScreenshots,
+          });
+        }
+        updateAutoFinding(existingSmokeBug.id, {
           description: result.qaResult.testOutput,
+          failure_history: JSON.stringify(existingHistory),
         });
       } else {
-        createAutoFinding({
+        const seedHistory: import('./types').FailureHistoryEntry[] = [{
+          cycle_id: cycle.id,
+          approach: '(initial smoke failure — no developer attempt yet)',
+          failure_reason: result.qaResult.testOutput,
+          timestamp: now,
+          screenshots: result.qaScreenshots,
+        }];
+        const newBug = createAutoFinding({
           session_id: this.currentSessionId,
-          category: 'test_failure',
+          category: 'bug',
           priority: 'P0',
-          title: 'QA tests failed in pipeline cycle',
+          title: smokeTitle,
           description: result.qaResult.testOutput,
+        });
+        updateAutoFinding(newBug.id, {
+          failure_history: JSON.stringify(seedHistory),
         });
       }
     }

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { parseReviewOutput, parseQAOutput, parseDeveloperOutput, filterAgentsByPipelineType, extractSmokeScreenshots } from '../../src/lib/autonomous/pipeline-executor';
+import { parseReviewOutput, parseQAOutput, parseDeveloperOutput, filterAgentsByPipelineType, extractSmokeScreenshots, extractSmokeFailures } from '../../src/lib/autonomous/pipeline-executor';
 import type { AutoAgent, AutoAgentRun } from '../../src/lib/autonomous/types';
 
 // Mock dependencies for PipelineExecutor.execute() tests
@@ -533,5 +533,89 @@ describe('extractSmokeScreenshots', () => {
     expect(result).not.toContain(missingPath);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
+describe('extractSmokeFailures', () => {
+  it('returns test_name and screenshot for each failure (happy path)', () => {
+    const output = JSON.stringify({
+      test_case_file: '/proj/smoke-test.md',
+      summary: { total: 2, passed: 0, failed: 2, new_failed: 2, skipped: 0 },
+      failures: [
+        {
+          test_id: 'SMOKE-01',
+          test_name: 'Library screen loads',
+          screenshot: '/screenshots/SMOKE-01.png',
+          severity: 'critical',
+        },
+        {
+          test_id: 'SMOKE-02',
+          test_name: 'Settings panel opens',
+          screenshot: '/screenshots/SMOKE-02.png',
+          severity: 'major',
+        },
+      ],
+    });
+
+    const result = extractSmokeFailures(output);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ test_name: 'Library screen loads', screenshot: '/screenshots/SMOKE-01.png' });
+    expect(result[1]).toEqual({ test_name: 'Settings panel opens', screenshot: '/screenshots/SMOKE-02.png' });
+  });
+
+  it('returns partial entries: one with name but no screenshot, another with screenshot but no name', () => {
+    const output = JSON.stringify({
+      summary: { total: 2, passed: 0, failed: 2, new_failed: 2, skipped: 0 },
+      failures: [
+        {
+          test_id: 'SMOKE-01',
+          test_name: 'Name only failure',
+          severity: 'critical',
+          // no screenshot field
+        },
+        {
+          test_id: 'SMOKE-02',
+          screenshot: '/screenshots/SMOKE-02.png',
+          severity: 'critical',
+          // no test_name field
+        },
+      ],
+    });
+
+    const result = extractSmokeFailures(output);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ test_name: 'Name only failure' });
+    expect(result[1]).toEqual({ screenshot: '/screenshots/SMOKE-02.png' });
+  });
+
+  it('returns empty array when failures array is empty', () => {
+    const output = JSON.stringify({
+      summary: { total: 2, passed: 2, failed: 0, new_failed: 0, skipped: 0 },
+      failures: [],
+    });
+
+    const result = extractSmokeFailures(output);
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array on unparseable output', () => {
+    const result = extractSmokeFailures('This is not JSON at all');
+    expect(result).toEqual([]);
+  });
+
+  it('does NOT filter by file existence — returns screenshot paths even when files are missing', () => {
+    const output = JSON.stringify({
+      summary: { total: 1, passed: 0, failed: 1, new_failed: 1, skipped: 0 },
+      failures: [
+        {
+          test_name: 'Nonexistent screenshot test',
+          screenshot: '/nonexistent/path/SMOKE-01.png',
+        },
+      ],
+    });
+
+    const result = extractSmokeFailures(output);
+    expect(result).toHaveLength(1);
+    expect(result[0].screenshot).toBe('/nonexistent/path/SMOKE-01.png');
   });
 });

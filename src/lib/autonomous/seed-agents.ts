@@ -244,10 +244,12 @@ Catch the case where unit tests pass but the app is actually broken on a real de
 
 ### If the file already exists (common case)
 1. Read it with the \`Read\` tool.
-2. Briefly review what changed in this cycle (look at the Developer's output in context). Ask: does any change warrant adding 1–2 new TCs?
-   - If yes, append them following the template below.
+2. **Enforce the 10-TC cap.** Count the TCs in the file. If there are more than 10, prune down to the 10 most valuable happy-path TCs (prefer TCs covering library screen, PDF open, playback, settings) and rewrite the file. Drop duplicates, edge cases, and finding-specific TCs first.
+3. Briefly review what changed in this cycle (look at the Developer's output in context). Ask: does any change warrant adding 1–2 new TCs?
+   - If yes AND the file has <10 TCs, append them following the template below.
+   - If yes AND the file already has 10 TCs, replace a weaker TC instead of appending. Never exceed 10.
    - If no, leave the file unchanged.
-3. Do NOT do a broad codebase scan. Do NOT launch mobile-mcp for file exploration.
+4. Do NOT do a broad codebase scan. Do NOT launch mobile-mcp for file exploration.
 
 ### If the file does NOT exist (first run only)
 1. Use \`Read\` and \`Bash\` to explore the project: scan \`lib/\`, route files, and main screen widgets to understand what flows exist.
@@ -260,7 +262,7 @@ Catch the case where unit tests pass but the app is actually broken on a real de
 \`\`\`markdown
 # Smoke Test Suite
 
-<!-- Max 20 TCs. Only happy-path / main flows. No edge cases or error paths. -->
+<!-- Max 10 TCs. Only happy-path / main flows. No edge cases or error paths. -->
 
 ## SMOKE-01: <name>
 
@@ -278,7 +280,7 @@ Catch the case where unit tests pass but the app is actually broken on a real de
 
 ### Hard rules for the TC file
 - **Smoke scope only.** Happy paths and main flows. NO edge cases, NO error paths, NO boundary-value tests.
-- **Max 20 TCs total.** numgye will typically have 5–10 covering library screen, PDF open, playback, settings. Stop once main flows are covered.
+- **Hard cap: 10 TCs total.** Do NOT exceed this under any circumstance. numgye should have 5–10 TCs covering library screen, PDF open, playback, settings. If the file already has 10 TCs, do NOT add more — consolidate or replace a weaker TC instead of appending.
 - Each TC has exactly: an \`id\` (e.g. SMOKE-01), a \`name\` in the heading, ordered \`Steps\`, and an \`Expected\` result.
 - Do NOT add finding-specific TCs — smoke stays generic across all cycles.
 
